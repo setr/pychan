@@ -133,13 +133,6 @@ def _fetch_all(query, data=None):
         rows = c.fetchall()
     return rows
 
-def _fetch_many(query, data=None):
-    """ executes the same command on a list of data serially
-    """
-    ##TODO
-    pass
-    
-
 def new_post(thread, name, email, subject, filename, post, password):
     """ Submits a new post, without value checking. 
         Args:
@@ -211,26 +204,26 @@ def get_page(pgnum, board):
                         (op_post, post1, post2, ..)
                         (etc)]
     """
-    # gets the threads with the latest 5 posts, and their op_ids
+    # gets the last 10 threads with the latest posts, and their op_ids
     query = """
         SELECT threads.thread_id, op_id FROM threads 
         JOIN posts 
         ON threads.thread_id = posts.thread_id 
-        WHERE board_id = ? AND timestamp = (
+        WHERE board_id = (
+            SELECT board_id from boards where boards.title = ?)
+        AND timestamp = (
             SELECT max(timestamp) FROM posts p1 WHERE threads.thread_id = p1.thread_id) 
         GROUP BY threads.thread_id ORDER BY posts.timestamp DESC LIMIT 10 OFFSET ?;
         """
+    print("board=%s pgnum=%s" % (board, pgnum))
     threads = _fetch_all(query, (board, pgnum*10))
-    print(threads) # needs to look like [(thread_id, op_id)]; list of pairs
-    query = "SELECT * from posts where thread_id = ? and post_id != ?"
-    posts = _fetch_many(query, threads)
-    ops = _fetch_many("SELECT * from posts where post_id = ?", [(i[1],) for i in threads])
-    # now we need to merge them into a structure like
-        # [ (op_post, p1, p2, etc), 
-        #   (op_post, p1, p2, etc)]
-        # should probably just make some objects.
-    # finally, return the structure.
-    final = None # TODO
+    print(threads)
+    final = list()
+    for thread_id, post_id in threads:
+        op = _fetch_one("SELECT * FROM posts WHERE post_id = ?", (post_id,))
+        posts = _fetch_all("SELECT * FROM posts WHERE thread_id = ? and post_id != ?", (thread_id, post_id))
+        posts.insert(0,op)
+        final.append(posts)
     return final
 
 def delete_post(postid, password, ismod=False):
@@ -320,4 +313,5 @@ def testrun():
     makedata()
 
 if __name__ == '__main__':
-    testrun()
+    #testrun()
+    get_page(0, 'v')
