@@ -7,6 +7,7 @@ etc.listener(document, 'click', 'del', function (event) {
          event.target.classList.toggle('reveal');
          });
 
+// inject reply form on clicking [Reply]
 function createForm() {
     var input = document.createElement('input');
     input.type='text';
