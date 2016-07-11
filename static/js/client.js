@@ -7,6 +7,7 @@ etc.listener(document, 'click', 'del', function (event) {
          event.target.classList.toggle('reveal');
          });
 
+// Inject reply form when clicking [Reply]
 function createForm() {
     var input = document.createElement('input');
     input.type='text';
@@ -20,15 +21,3 @@ for (var i = 0; i < replies.length; ++i) {
         reply_button.appendChild(createInputForm);
     });}
 
-
-// Proxy image clicks to views. More performant than dedicated listeners for
-// each view.
-$threads.on('click', 'img, video', function (e) {
-    //if (options.get('inlinefit') == 'none' || e.which !== 1) return;
-    var model = etc.getModel(e.target);
-    if (!model) return;
-    e.preventDefault();
-    // Remove image hover preview, if any
-    main.request('imager:clicked');
-    model.dispatch('toggleImageExpansion', !model.get('imageExpanded'), model.get('image'), true);
-});
