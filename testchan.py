@@ -1,10 +1,13 @@
 import db2 as db
+import datetime
 from flask import Flask, render_template, request
 from flask import url_for, flash, redirect, session
 from flask import send_from_directory, Markup 
 from werkzeug import secure_filename, escape
+from pprint import pprint
 import random, string
 import re
+import dateutil.relativedelta as du
 
 
 app = Flask(__name__)
@@ -27,12 +30,27 @@ def load_tables():
     db._fetch_metadata(database)
 
 @app.before_request
-def assign_pass():
-    """ Makes sure the user has a password to sign off posts with
-    Doesn't actually need to be secure, since it's not like these are important """
+def assign_session_params():
+    """ Makes sure the user has basic needs satisfied
+        password: password to sign off posts with
+        myposts: list of pids posted by the user
+        clear-myposts: At max once every 2 days, clear out the posts 
+            assigned to their session if the post no longer exists
+    """
     if 'password' not in session:
         allowed= string.ascii_letters + string.digits
         session['password']= ''.join(random.choice(allowed) for i in range(24))
+    if 'myposts' not in session:
+        session['myposts'] = list()
+
+    now = datetime.datetime.utcnow()
+    if 'lastclear' not in session:
+        session['lastclear'] = now
+    delta = now - session['lastclear']
+    if delta > datetime.timedelta(days=2): 
+        for i, pid in enumerate(session['myposts']):
+            if _is_post(pid):
+                del session['myposts'][i] # clears out the posts cookies 
     return None
 
 def checktime(fn):
@@ -44,7 +62,7 @@ def checktime(fn):
         else:
             delta = now - session['lastpost']
             mintime = app.config['minsec_between_posts']
-            if delta < datetime.datetime.timedelta(seconds=mintime):
+            if delta < datetime.timedelta(seconds=mintime):
                 return general_error('Please wait at least %s seconds before posting again' % (mintime,))
             else:
                 session['lastpost'] = now
@@ -83,17 +101,18 @@ def _parse_post(post):
             post (str): the full content of the post
         Returns:
             str: the post with all our new html injected 
-            list: all posts being referred to, for backref creation
+            list: all post ids being referred to, for backref creation
     """
     # we need to parse out the pids
     # then form the html for it
     f_ref=   re.compile('&gt;&gt;(\d+)(\s)') # >>123123
-    f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILED ><
-    f_imply= re.compile('^&gt;.*') # >implying
-    spoiler = '<del> {} </del>'
+    f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILERED ><
+    f_imply= re.compile('^&gt;.+', re.MULTILINE) # >implying
+    spoiler = '<del class> {} </del>'
     implying = '<em> {} </em>'
-    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{space}'
+    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{you}{space}'
     
+    mypids = session['myposts']
     addrefs = list()
     def r_ref(match):
         pid = int(match.group(1))
@@ -101,7 +120,8 @@ def _parse_post(post):
         tid = db._fetch_thread_of_post(pid)
         if tid:
             addrefs.append(pid)
-            return backref.format(tid=tid, pid=pid, space=space)
+            you = " (You) " if pid in mypids else ""
+            return backref.format(tid=tid, pid=pid, space=space, you=you)
         else:
             return ">>{}{}".format(pid, space) # so it doesn't get read by any other filters
     r_imply = lambda match: implying.format(match.group(0))
@@ -110,8 +130,8 @@ def _parse_post(post):
     post = escape(post) # HTML escaping, from werkzeug
     post = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in post.splitlines()])
     post = re.sub(f_ref, r_ref, post)
-    post = re.sub(f_imply, r_imply, post)
     post = re.sub(f_spoil, r_spoil, post)
+    post = re.sub(f_imply, r_imply, post)
     post = re.sub('\n', '\n<br>\n', post)
 
     return post, addrefs
@@ -173,11 +193,35 @@ def _upload(board, threadid=None):
     with db.engine.being() as conn:
         if threadid: 
             pid = create_post(threadid, filename, post, password, name, email, subject, sage)
+            session['myposts'].append(pid) # we don't care about owning threads
         else:
             threadid, pid = create_thread(board, filename, post, password, name, email, subject)
     return redirect(url_for('thread', threadid=threadid, postid= pid))
 
+def _rel_timestamp(timestamp):
+    """ returns a human readable time-delta between timestamp and current time, 
+    with only the biggest time unit
+    ie 40 hr difference => 1 day
+        Args:
+            timestamp (datetime): original tim
+        Returns:
+            str: "1 minute"; "20 minutes"; "3 hours"; "0 seconds"
+    """
+    # normalize just forces integer values for time-units
+    delta = du.relativedelta(timestamp, datetime.datetime.now()).normalized()
+    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
+    ts = ''
+    for a in attrs:
+        num = getattr(delta, a)
+        if num:
+            ts = '%d %s' % (num, a if num > 1 else a[:-1]) # a = minutes, a[-1] = minute
+            break
+    else: # no break was encountered in for loop
+        ts = '%d %s' % (0, 'seconds')
+    return ts
+
 def parse_threads(threads):
+    """ reads the body text, applies styling """
     ts = list()
     reflist = list()
     for thread in threads:
@@ -185,6 +229,7 @@ def parse_threads(threads):
         for post in thread:
             p = dict(post.items())
             p['body'], addlist  = _parse_post(p['body'])
+            p['h_time'] = _rel_timestamp(p['timestamp'])
             if addlist:
                 reflist.append((p['id'], addlist))
             t.append(p)
