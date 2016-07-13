@@ -130,7 +130,7 @@ def fetch_thread(threadid):
     posts_query = select([posts]).where(text(""" 
                             posts.thread_id = :threadid 
                             AND posts.id != (SELECT op_id from threads where threads.id =:threadid)""")).\
-                  order_by(asc(posts.c.timestamp))
+                  order_by(asc(posts.c.id))
 
     op_result = engine.execute(op_query, threadid=threadid).fetchone()
     posts_result = engine.execute(posts_query, threadid=threadid).fetchall() 
@@ -163,8 +163,8 @@ def fetch_page(board, pgnum=0):
         ON threads.id = posts.thread_id
         WHERE board_id = (
             SELECT board_id from boards where boards.title = :board_title)
-        AND timestamp = (
-            SELECT max(timestamp) FROM posts p1 WHERE threads.id = p1.thread_id
+        AND posts.id = (
+            SELECT max(id) FROM posts p1 WHERE threads.id = p1.thread_id
                                                     AND p1.sage = :false)
         GROUP BY threads.id
         ORDER BY threads.alive DESC, posts.timestamp DESC 
@@ -177,9 +177,9 @@ def fetch_page(board, pgnum=0):
                                     false=str(sqlalchemy.false())).fetchall()
     op_query = select([posts]).where(text('posts.id = :op_id'))
     latest_posts = select([posts]).where(text('posts.thread_id = :threadid AND posts.id != :op_id')).\
-                                order_by(desc(posts.c.timestamp)).\
+                                order_by(desc(posts.c.id)).\
                                 limit(bindparam('post_page'))
-    posts_query = select([latest_posts]).order_by(asc('timestamp'))
+    posts_query = select([latest_posts]).order_by(asc("id"))
     pagedata = list()
     for thread in thread_data:
         op_data = {'op_id': thread['op_id']}
@@ -259,7 +259,8 @@ def fetch_backrefs(postid):
     """
     q = """SELECT backrefs.tail, posts.thread_id FROM backrefs 
             JOIN posts ON backrefs.tail = posts.id
-            WHERE backrefs.head = :postid"""
+            WHERE backrefs.head = :postid
+            ORDER BY backrefs.tail"""
     stmt = text(q).columns(backrefs.c.tail, posts.c.thread_id)
     return engine.execute(q, postid=postid).fetchall()
 
