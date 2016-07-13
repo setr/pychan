@@ -1,0 +1,118 @@
+## NOTES
+## Meguca OP vs normal posts has the header/image order swapped.
+##   This shoves the header to the right, instead of above the image
+##   I've mimicked it here, though I feel like it could be resolved in css
+## All if_exists else None checks are done in the macros themselves
+##   This is just to keep the main macro itself cleaner, because jinja2
+##   is fucking unreadable as it is
+## JINJA2 LINE MODE is turned on, using # for statements, and ## for comments.
+{% macro _header( threadid, post, isop=false )%} 
+    {% set tid = threadid %}
+    {% set pid = post.id %}
+    <header>
+        <input type="checkbox" class="postCheckbox">
+        <span class="control"></span>
+        {% if isop %} <!-- subject is for threads only, at least for now -->
+        <h3> {{ post.subject }} </h3>
+        {% endif %}
+        <b class="name"> {{ post.name }} </b>
+        <time title="{{post.timestamp}}"> {{post.h_time}}</time>
+        <nav>
+            <a href="{{tid}}#{{pid}}" class="history">No.</a> <!-- tid == pid for threads -->
+            <a href="{{tid}}#{{pid}}" class="quote">{{tid}}</a>
+        </nav>
+        {% if isop %}
+        <span class="act expansionLinks">
+            <a href="{{tid}}" class="history">Expand</a>
+            ## I don't think I care to actually implement this
+            ## <a href="{{tid}}?last=100" class="history">Last 100</a>
+        </span>
+        {% endif %}
+    </header>
+{%- endmacro %}
+
+{% macro _replies( replylist ) %}
+    <small>
+        {% for r in replylist %}
+            {% set rid = r.tail %}
+            {% set tid = r.thread_id %}
+            <a href="{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
+        {% endfor %}
+    </small>
+{%- endmacro %}
+
+{% macro _figure(filename, isop) %}
+    ## based on meguca sizing
+    # if isop:                      
+        {% set width = "250px" %}
+        {% set height= "250px" %}
+    # else:
+        {% set width = "125px" %}
+        {% set height= "125px" %}
+    # endif 
+
+    # if filename:
+    {% set link = url_for('static', filename=filename) %}
+    <figure>
+        <figcaption>
+        <!-- imgsearch urls -->
+        </figcaption>
+        <a target="_blank" rel="nofollow" href="{{ link }}">
+            <!-- this should be a thumbnail, eventually -->
+            <img src="{{ link }}" style="max-width: {{width}}; max-height: {{height}}">
+        </a>
+    </figure>
+    # endif
+{%- endmacro %}
+
+
+{% macro op(threadid, post) %}
+    {% set tid = threadid %}
+    {% set pid = post.id %} 
+    <section id={{tid}}>
+    <!-- I dont know why, but header/figure order is reversed for meguca's op vs threads
+        I'm just going to do the same here, for now. Probably fucks with the css -->
+    {{ _figure( post.filename ) }}
+    {{ _header( threadid, post, isop=true ) }}
+    <blockquote>
+        {{ post.body }}
+    </blockquote>
+    <!-- TODO: this should obviously be dynamic -->
+    <span class="omit"> 600 replies and 35 images omitted </span>
+    {{ _replies( post.tails )}}
+{%- endmacro %}
+
+
+{% macro post(threadid, post) %}
+    {% set pid = post.postid %}
+    <article id="{{pid}}">
+        {{ _header( threadid, post, isop=false) }}
+        {% if post.filename %}
+            {{ _figure( post.filename )}}
+        {% endif%}
+        <blockquote>
+            {{ post.body }}
+        <blockquote>
+        {{ _replies( post.tails )}}
+    </article>
+{%- endmacro %}
+
+{% macro merge(threadid, post, isop) %}
+    {% set tid = threadid %}
+    {% set pid = post.id %} 
+    # if isop:
+        {{ _figure( post.filename, isop=true) }}  ## meguca op max h/w is 250x250
+        {{ _header( threadid, post, isop=true )}}
+    # else:
+        {{ _header( threadid, post, isop=false )}}
+        {{ _figure( post.filename, isop=false ) }} ## meguca op max h/w is 125x125
+    # endif
+    <blockquote>
+        {{ post.body | safe}}
+    </blockquote>
+    {{ _replies( post.tails ) }}
+    # if isop:
+        ## TODO: obviously, this should be dynamic
+        <span class="omit"> 600 replies and 35 images omitted </span>
+    # endif
+{%- endmacro %}

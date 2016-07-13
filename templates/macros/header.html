@@ -1,0 +1,15 @@
+## any standard import macros will go here
+
+{% macro header() %}
+    {% set base = url_for('static', filename='css/base.css') %}
+    {% set ashita = url_for('static', filename='css/ashita.css') %}
+    {% set clientjs= url_for('static', filename='js/client.js') %}
+    
+    <head>
+        <link rel="stylesheet" id="theme" href="{{ base }}">
+        <link rel="stylesheet" id="theme" href="{{ ashita }}">
+        <!-- pull jquery from google instead of ourselves, because it'll be cached from other sites too -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+        <script type="text/javascript" src="{{ clientjs }}"></script>
+    </head>
+{%- endmacro %}

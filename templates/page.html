@@ -1,104 +1,45 @@
+{% import 'macros/post_articles.html' as posts %}
+{% import 'macros/header.html' as headers %}
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <link rel="stylesheet" id="theme" href="{{ url_for('static', filename='css/base.css') }}">
-        <link rel="stylesheet" id="theme" href="{{ url_for('static', filename='css/ashita.css') }}">
-        <script type="text/javascript" src="{{ url_for('static', filename='js/client.js') }}"></script>
-
-    </head>
+    {{ headers.header() }}
     <body>
-        <h1> <img> <!-- banner goes here --> </h1>
+        <h1> <img> <!-- banner goes here --> </img> </h1>
         <threads>
         {% set tit, stit = board.title, board.subtitle %}
            <h1> /{{tit}}/ - {{stit}} </h1>
            <!-- meguca doesn't use slogans? -->
         <nav class="pagination act">
+            # for i in range(5):
+            <a href="?page={{i}}" class="history"> {{ i }}</a>
+            # endfor
         </nav>
         <hr>
-        <aside class="act posting"> </aside>
+        <aside class="act posting"> 
+            <a>New thread</a>
+        </aside>
         <hr>
         {% for thread in threads %}
-            {% set tid = thread[0].id %}
-            <section id={{tid}}>
-            <figure>
-                <figcaption>
-                <!-- imgsearch urls -->
-                </figcaption>
-                <a target="_blank" rel="nofollow" href="{{ url_for('static', filename=thread[0].filename)}}">
-                    <!-- this should be a thumbnail, eventually -->
-                    <img src="{{ url_for('static', filename=thread[0].filename) }}" width="250", height="250">
-                </a>
-            </figure>
-            <header>
-                <input type="checkbox" class="postCheckbox">
-                <span class="control"></span>
-                <h3> {{ thread[0].subject }} </h3>
-                <b class="name"> {{ thread[0].name }} </b>
-                <time title="{{ thread[0].timestamp }}"> 1 day ago </time>
-                <nav> 
-                    <a href="{{tid}}#{{pid}}" class="history">No.</a> 
-                    <a href="{{tid}}#{{id}}" class="quote">{{tid}}</a>
-                </nav>
-                <span class="act expanionLinks">
-                    <a href="{{tid}}" class="history">Expand</a>
-                    <a href="{{tid}}?last=100" class="history">Last 100</a>
-                </span>
-            </header>
-            <blockquote>
-                {{ thread[0].body }}
-            </blockquote>
-            <span class="omit"> 600 replies and 35 images omitted </span>
-            <small> 
-                {% for r in thread[0].tails %}
-                <a href="{{r.thread_id}}#{{r.tail}}" class="history"> >>{{r.tail}} </a>
-                {% endfor %}
-            </small>
-            <!-- end of original post -->
-            <hr>
+            {% set op = thread[0] %}
+            <section id={{ op.id }}>
+            {{ posts.merge(op.id, op, isop=True) }}
+            <hr> ## END OF ORIGINAL POST
+            
             {% for post in thread[1:] %}
-                {% set pid = post.id %}
-                <article id="{{pid}}">
-                    <header> <!-- this should be a macro -->
-                        <input type="checkbox" class="postCheckbox">
-                        <span class="control"></span>
-                        <b class="name">{{post.name}}</b>
-                        <time title="{{post.timestamp}}"> {{post.h_time}}</time>
-                        <nav> 
-                            <a href="{{tid}}#{{pid}}" class="history">No.</a> 
-                            <a href="{{tid}}#{{pid}}" class="quote">{{pid}}</a>
-                        </nav>
-                    </header>
-
-                    <!-- end header -->
-                    {% if post.filename %}
-                    <figure>
-                        <figcaption>
-                        <!-- imgsearch urls -->
-                        </figcaption>
-                        <a target="_blank" rel="nofollow" href="{{ url_for('static', filename=post.filename)}}">
-                            <img src="{{ url_for('static', filename=post.filename) }}" width="125", height="70">
-                        </a>
-                    </figure>
-                    {% endif %}
-
-                    <!-- end fig -->
-                    <blockquote>
-                        {{post.body|safe}}
-                    </blockquote>
-                    <small>
-                        {% for r in post.tails %}
-                        <a href="{{r.thread_id}}#{{r.tail}}" class="history"> >>{{r.tail}} </a>
-                        {% endfor %}
-                    </small> <!-- should this even be here? seems like a relic of OP generation -->
+                <article id="{{ post.id }}">
+                {{ posts.merge(tid, post, isop=False) }}
                 </article>
             {% endfor %}
-            <aside class="act posting" style="display: table">
+            
+            <aside class="act posting" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
+
             <hr>
             <hr>
-            </section>
-        {% endfor %}
+            </section> ## END OF THREAD
+        {% endfor %} 
+        </threads>
     </body>
 </html>
     
