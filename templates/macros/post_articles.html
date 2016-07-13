@@ -6,6 +6,7 @@
 ##   This is just to keep the main macro itself cleaner, because jinja2
 ##   is fucking unreadable as it is
 ## JINJA2 LINE MODE is turned on, using # for statements, and ## for comments.
+
 {% macro _header( threadid, post, isop=false )%} 
     {% set tid = threadid %}
     {% set pid = post.id %}
@@ -19,7 +20,7 @@
         <time title="{{post.timestamp}}"> {{post.h_time}}</time>
         <nav>
             <a href="{{tid}}#{{pid}}" class="history">No.</a> <!-- tid == pid for threads -->
-            <a href="{{tid}}#{{pid}}" class="quote">{{tid}}</a>
+            <a href="{{tid}}#{{pid}}" class="quote">{{pid}}</a>
         </nav>
         {% if isop %}
         <span class="act expansionLinks">

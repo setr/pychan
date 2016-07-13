@@ -16,6 +16,13 @@ then go to localhost:5000
 ##TODO
 ### REPLY FORM
 Auto-resize textarea for inject-reply input: https://github.com/ro31337/jquery.ns-autogrow (JS)
+    *This code seems to work well, but we'll need to add a max-width property because otherwise
+    *it only has the options
+        *Don't move horizontally at all
+        *Move horizontally to infinite length
+    *Which is fucking retarded
+    ``` $('#trans').autogrow({max-width=900})```
+
 Primary input form  (JINJA)
 Actual POSTing of reply data (JINJA/PYTHON)
 New Thread vs New Reply distinction (JINJA)

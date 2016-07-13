@@ -21,8 +21,9 @@
         <hr>
         {% for thread in threads %}
             {% set op = thread[0] %}
+            {% set tid = op.id %}
             <section id={{ op.id }}>
-            {{ posts.merge(op.id, op, isop=True) }}
+            {{ posts.merge(tid, op, isop=True) }}
             <hr> ## END OF ORIGINAL POST
             
             {% for post in thread[1:] %}
