@@ -3,3 +3,11 @@ article{
     max-width: 70%; 
     min-width: 300px;
 }
+.act:before{
+    content: "[ ";
+}
+.act:after{
+    content: " ]";
+}
+
+
