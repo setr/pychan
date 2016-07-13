@@ -17,6 +17,8 @@ ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
 app.config['UPLOAD_FOLDER'] = 'static/' + imgpath
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 app.config['minsec_between_posts'] = 30
+app.jinja_env.line_statement_prefix = '#' # enables jinja2 line mode
+app.jinja_env.line_comment_prefix = '##' # enables jinja2 line mode
 
 database = 'sqlite:///db1.sqlite'
 
@@ -97,6 +99,9 @@ def _validate_post(post):
 
 def _parse_post(post):
     """ injects all our html formatters and adds any backrefs found to the db
+    However, I'm not sure we should be doing this on the server side
+    especially as currently, we're not actually saving the converted text
+    reparsing everything on every refresh..
         Args:
             post (str): the full content of the post
         Returns:
@@ -106,17 +111,17 @@ def _parse_post(post):
     # we need to parse out the pids
     # then form the html for it
     f_ref=   re.compile('&gt;&gt;(\d+)(\s)') # >>123123
-    f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILERED ><
+    f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILERED >< 
     f_imply= re.compile('^&gt;.+', re.MULTILINE) # >implying
+    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{you}{space}'
     spoiler = '<del class> {} </del>'
     implying = '<em> {} </em>'
-    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{you}{space}'
     
     mypids = session['myposts']
     addrefs = list()
-    def r_ref(match):
+    def r_ref(match): 
         pid = int(match.group(1))
-        space = match.group(2) # preserver following whitespace; particularly \n
+        space = match.group(2) # preserves following whitespace; particularly \n
         tid = db._fetch_thread_of_post(pid)
         if tid:
             addrefs.append(pid)
@@ -127,11 +132,15 @@ def _parse_post(post):
     r_imply = lambda match: implying.format(match.group(0))
     r_spoil = lambda match: spoiler.format(match.group(1))
 
+    # currently, we're escaping the text, then regex substituting on to it
+    # and using unescaped markup for substitutions, so it gets injected correctly
+    # which is why the regex is hunting for &gt;&lt; instead of >< 
+
     post = escape(post) # HTML escaping, from werkzeug
     post = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in post.splitlines()])
-    post = re.sub(f_ref, r_ref, post)
-    post = re.sub(f_spoil, r_spoil, post)
-    post = re.sub(f_imply, r_imply, post)
+    post = re.sub(f_ref, r_ref, post)      # post-references must occur before imply (>>num)
+    post = re.sub(f_spoil, r_spoil, post)  # spoiler must occur before imply (>< text ><)
+    post = re.sub(f_imply, r_imply, post)  # since is looking for a subset  (>text)
     post = re.sub('\n', '\n<br>\n', post)
 
     return post, addrefs
@@ -208,20 +217,20 @@ def _rel_timestamp(timestamp):
             str: "1 minute"; "20 minutes"; "3 hours"; "0 seconds"
     """
     # normalize just forces integer values for time-units
-    delta = du.relativedelta(timestamp, datetime.datetime.now()).normalized()
+    delta = du.relativedelta(datetime.datetime.now(), timestamp).normalized()
     attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
-    ts = ''
+    ts = '{} {} ago'
     for a in attrs:
         num = getattr(delta, a)
         if num:
-            ts = '%d %s' % (num, a if num > 1 else a[:-1]) # a = minutes, a[-1] = minute
+            ts = ts.format(num, a if num > 1 else a[:-1]) # a = minutes, a[-1] = minute
             break
     else: # no break was encountered in for loop
-        ts = '%d %s' % (0, 'seconds')
+        ts = ts.format(0, 'seconds')
     return ts
 
 def parse_threads(threads):
-    """ reads the body text, applies styling """
+    """ reads the body text for each post, applies styling """
     ts = list()
     reflist = list()
     for thread in threads:
@@ -247,12 +256,19 @@ def thread(board, thread):
     threads = parse_threads(threads)
     return render_template('page.html', threads=threads, board=board)
 
-@app.route('/<board>/', methods=['GET'])
+
+@app.route('/<board>', methods=['GET'])
 @app.route('/<board>/index.html', methods=['GET'])
 def index(board):
-    threads = db.fetch_page(board)
-    board = db.fetch_board_data(board)
+    page = request.args.get('page', 0)
+    if not page.isdigit():
+        page = 0
 
+    threads = db.fetch_page(board, page)
+    if not threads:
+        return e404()
+
+    board = db.fetch_board_data(board)
     threads = parse_threads(threads)
     return render_template('page.html', threads=threads, board=board)
 
