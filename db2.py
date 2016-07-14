@@ -1,10 +1,11 @@
 import sqlalchemy
 from sqlalchemy.sql import func
 from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
-from sqlalchemy import select, text, desc, bindparam, asc
+from sqlalchemy import select, text, desc, bindparam, asc, and_
 import os
 import bcrypt
 import time
+import datetime
 
 # defined by _create_db, _fetch_metadata, or
 db = "sqlite:///db1.sqlite"
@@ -14,10 +15,12 @@ boards= backrefs= threads= posts= mods= banlist= None # tables
 
 #config options
 # todo: move to its own file
-threads_page= 10  # n threads per index page
-posts_page= 5     # latest n posts for thread; displayed on index pages
-thread_max_posts = 500 # threads with more than n posts can no longer be bumped
-post_maxlen = 2000 # 4chan max post length, on /v/ at least
+class config():
+    index_threads_per_page = 10           # n threads per index page
+    index_posts_per_thread = 5              # latest n posts for thread; displayed on index pages
+    thread_max_posts = 500      # threads with more than n posts can no longer be bumped
+    post_max_length = 2000          # 4chan max post length, on /v/ at least
+    index_max_pages = 10
 
 def with_slave(fn):
     """ Simple decorator to switch to a slave DB for reads
@@ -51,12 +54,12 @@ def _create_db(db):
             Column('title', Text, nullable=False, index=True, unique=True),
             Column('subtitle', Text, nullable=False),
             Column('slogan', Text),
-            Column('active', Boolean))
+            Column('active', Boolean, default=True))
     threads = Table('threads', metadata,
             Column('id', Integer, primary_key=True),
             Column('board_id', Integer, ForeignKey("boards.id", **cascade)),
             Column('op_id', Integer), #ForeignKey("posts.id", **cascade)),
-            Column('alive', Boolean, default=True), # if it exceeds
+            Column('alive', Boolean, default=True), # is it on autosage?
             Column('sticky', Boolean, default=True),
             UniqueConstraint('board_id', 'op_id'))
     posts = Table('posts', metadata,
@@ -67,9 +70,9 @@ def _create_db(db):
             Column('email', String(30)),
             Column('subject', String(50)),
             Column('filename', String(255)), # max length of linux filenames
-            Column('body', String(post_maxlen), nullable=False), 
+            Column('body', String(config.post_max_length), nullable=False), 
             Column('password', String(60), nullable=False), # bcrypt output
-            Column('timestamp', DateTime, default=func.current_timestamp()))
+            Column('timestamp', DateTime, default=datetime.datetime.utcnow))
     backrefs = Table('backrefs', metadata,
             Column('id', Integer, primary_key=True),
             Column('head', Integer, ForeignKey("posts.id", **cascade)), # post being pointed to
@@ -86,6 +89,7 @@ def _create_db(db):
             Column('reason', String(2000), nullable=False),
             Column('mod_id', Integer, ForeignKey("mods.id")),
             Column('board_id', Integer, ForeignKey("boards.id"), nullable=True)) # if None, it's global ban.
+
     metadata.drop_all(engine)
     metadata.create_all(engine)
     
@@ -112,7 +116,7 @@ def _fetch_metadata(db):
     global engine, slave
     global metatadata
     global boards, threads, posts, mods, banlist, backrefs
-    engine = sqlalchemy.create_engine(db , strategy='threadlocal')
+    engine = sqlalchemy.create_engine(db) #, strategy='threadlocal')
     slave = engine
 
     metadata = MetaData()
@@ -167,14 +171,15 @@ def fetch_page(board, pgnum=0):
             SELECT max(id) FROM posts p1 WHERE threads.id = p1.thread_id
                                                     AND p1.sage = :false)
         GROUP BY threads.id
-        ORDER BY threads.alive DESC, posts.timestamp DESC 
+        ORDER BY posts.id DESC 
         LIMIT 10 OFFSET :offset;
         """
-    offset = pgnum * threads_page
+    offset = pgnum * config.index_threads_per_page
     stmt = text(latest_threads_query).columns(threads.c.id, threads.c.op_id)
     thread_data = engine.execute(stmt, board_title=board, 
                                     offset=offset, 
-                                    false=str(sqlalchemy.false())).fetchall()
+                                    false=str(sqlalchemy.false()),
+                                    true=str(sqlalchemy.true())).fetchall()
     op_query = select([posts]).where(text('posts.id = :op_id'))
     latest_posts = select([posts]).where(text('posts.thread_id = :threadid AND posts.id != :op_id')).\
                                 order_by(desc(posts.c.id)).\
@@ -185,7 +190,7 @@ def fetch_page(board, pgnum=0):
         op_data = {'op_id': thread['op_id']}
         posts_data = {'threadid':thread['id'],
                         'op_id':thread['op_id'],
-                        'post_page':posts_page}
+                        'post_page':config.index_posts_per_thread}
         op_result = engine.execute(op_query, op_data).fetchone()
         posts_result = engine.execute(posts_query, posts_data).fetchall() 
         posts_result.insert(0, op_result)
@@ -197,7 +202,7 @@ def fetch_page(board, pgnum=0):
         pagedata.append(done)
     return pagedata 
 
-def create_post(thread, filename, body, password, name='', email='', subject='',  sage=False):
+def create_post(thread, filename, body, password, name='', email='', subject='',  sage=False, conn=None):
     """ Submits a new post, without value checking. 
         Args:
             thread (int): thread id
@@ -210,6 +215,7 @@ def create_post(thread, filename, body, password, name='', email='', subject='',
         Returns:
             int: post_id
     """
+
     password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     query = posts.insert().values(thread_id=thread,
                                     name=name,
@@ -219,36 +225,41 @@ def create_post(thread, filename, body, password, name='', email='', subject='',
                                     body=body,
                                     password=password,
                                     sage=sage)
-    post_id = engine.execute(query).inserted_primary_key[0]
+    # autosage check
+    postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == thread).as_scalar()
+    tquery = threads.update().where(and_(
+                        threads.c.id == thread,
+                        postcount > config.thread_max_posts )).\
+                                values( alive = False )
+    if not conn:
+        post_id = engine.execute(query).inserted_primary_key[0]
+        engine.execute(tquery)
+    else: # some other function is calling this
+        trans = conn.begin()
+        try:
+            post_id = conn.execute(query).inserted_primary_key[0]
+            conn.execute(tquery)
+            trans.commit()
+        except sqlalchemy.exc.TimeoutError:
+            trans.rollback()
     return post_id
 
 def thread_add_backref(backreflist):
-    """ Adds the entire thread at once """
+    """ Adds backrefs for each post, for an entire thread
+        Args:
+            tail (int): the id of the new post
+            heads (heads): a list of all post-ids being pointed to
+    """
     conn = engine.connect()
-    query = backrefs.insert()
+    query = backrefs.insert().prefix_with("OR REPLACE")
     for b in backreflist:
         tail = b[0]
         heads = b[1]
         data = [{ "head": head,
                     "tail": tail}
                     for head in heads]
-        try:
-            conn.execute(query, data)
-        except sqlalchemy.exc.IntegrityError:
-            pass
+        conn.execute(query, data)
     conn.close()
-
-def create_backrefs(tail, heads):
-    """ Adds backrefs for each post
-        Args:
-            tail (int): the id of the new post
-            heads (heads): a list of all post-ids being pointed to
-    """
-    data = [{ "head": head,
-                "tail": tail}
-                for head in heads]
-    query = backrefs.insert()
-    engine.executemany(query, data)
 
 def fetch_backrefs(postid):
     """ Gets the list of all posts pointing to a given post
@@ -264,6 +275,64 @@ def fetch_backrefs(postid):
     stmt = text(q).columns(backrefs.c.tail, posts.c.thread_id)
     return engine.execute(q, postid=postid).fetchall()
 
+def cleanup_threads(boardname, conn=None):
+    """ runs through and deletes any thread that has fallen off the board 
+    Since this can only occur with the creation of a new thread, this check
+    should only have to be made then. 
+        Args:
+            boardname (str): name of the board
+            conn (connection): connection being used in the transaction
+        Returns:
+            bool: succeeded or not"""
+
+    # subquery gets the latest N threads
+    # anything after that has fallen off the board
+    query ="""
+        DELETE FROM threads WHERE threads.id not in (
+            SELECT threads.id FROM threads
+            JOIN posts
+            ON threads.id = posts.thread_id
+            WHERE board_id = (
+                SELECT board_id from boards where boards.title = :board_title)
+            AND posts.id = (
+                SELECT max(id) FROM posts p1 WHERE threads.id = p1.thread_id
+                                                        AND p1.sage = :false
+                                                        AND threads.op_id != p1.id)
+            AND threads.alive = :true
+            GROUP BY threads.id
+            ORDER BY posts.id DESC
+            LIMIT :thread_max)
+    """
+    # for any post, if the parent thread is gone, then obviously the post should go with it
+    pquery =""" 
+        DELETE FROM posts WHERE posts.thread_id in (select threads.id from threads)
+        """
+ 
+    thread_max = config.index_max_pages * config.index_threads_per_page
+    data = {'board_title' : boardname,
+            'thread_max' : thread_max,
+            'false' : str(sqlalchemy.false()),
+            'true' : str(sqlalchemy.true()) }
+
+    success = False
+    if not conn:
+        engine.execute(query, data)
+        success = True
+    else: # some other function is calling this
+        trans = conn.begin()
+        try:
+            conn.execute(query, data)
+            conn.exceut(pqery)
+            trans.commit()
+            success = True
+        except sqlalchemy.exc.TimeoutError:
+            trans.rollback()
+    return success
+
+def mark_thread_autosage(threadid):
+    engine.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
+    return True
+    
 def create_thread(boardname, filename, body, password, name='', email='', subject=''):
     """ Submits a new thread, without value checking. 
         Args:
@@ -281,13 +350,20 @@ def create_thread(boardname, filename, body, password, name='', email='', subjec
     # make a new thread
     # make a new post
     # thread op = new post
-    #try:
-    boardid = engine.execute(select([boards.c.id]).where(boards.c.title == boardname)).fetchone()['id']
-    threadid = engine.execute(threads.insert().values(board_id= boardid)).inserted_primary_key[0]
-    postid = create_post(threadid, filename, body, password, name, email, subject)
-    engine.execute(threads.update().where(threads.c.id == threadid).values(op_id= postid))
-    #except:
-    #    return None # for now... does not say why it failed
+    conn = engine.connect()
+    trans = conn.begin()    
+    try:
+        true = str(sqlalchemy.true())
+        boardid = conn.execute(select([boards.c.id]).where(boards.c.title == boardname)).fetchone()['id']
+        threadid = conn.execute(threads.insert().values(board_id= boardid, alive=true, sticky=true)).inserted_primary_key[0]
+        postid = create_post(threadid, filename, body, password, name, email, subject, conn=conn)
+        conn.execute(threads.update().where(threads.c.id == threadid).values(op_id= postid))
+        #cleanup_threads(boardname, conn)
+
+        trans.commit()
+    except sqlalchemy.exc.TimeoutError:
+        trans.rollback()
+    conn.close()
     return threadid, postid
 
 def create_board(board_title, board_subtitle, board_slogan):
@@ -378,7 +454,6 @@ def validate_mod(username, password):
     password = password.encode('utf-8')
     hashed = engine.execute(select([mods.c.username]).\
                 where(username=bindparam('username')), username=username)['password']
-    #hashed = _fetch_one("SELECT password FROM mods WHERE username = ?", (password,))
     return bcrypt.hashpw(password, hashed) == hashed
 
 def testrun():
