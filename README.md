@@ -32,19 +32,19 @@ then go to localhost:5000
 
 ### BODY TEXT
 - [ ] Either move styling injection to client-side (JS)
-        * Or save the parsed body-text to the db (PYTHON)
+       -  Or save the parsed body-text to the db (PYTHON)
 - [ ] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
 - [ ] \>>0123021 (you) (JS)
 
 ### CONVENIENCE
-* Auto-update threads (JS/AJAX)
+- [ ] Auto-update threads (JS/AJAX)
 
 ### NON-FEATURES
 - [ ] A proper config file (PYTHON)
 - [ ] Move flask routing and helper functions into seperate files
 - [ ] DB needs to be split into an entry point file and helper functions
-        * with the helper functions always consuming engine transaction objects
-        * and the entry points always spawning them
+        - with the helper functions always consuming engine transaction objects
+        - and the entry points always spawning them
 - [ ] Give files proper names (ie not testchan)
 
 
