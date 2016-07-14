@@ -10,18 +10,52 @@ $(document).ready(function () {
 
 
 // reply form injection
-function createForm(){
+function createForm(article, replyform){
     // actual form
     var form = $("<form/>",
-                {action: '/myaction'});
-    form.append(
-            $("<input>",
-                { type: "text",
-                    name: "reply_form"}
-             ));
-    return form; }
+                {action: '/upload'});
+    var form = $("<form/>",
+                   {method: 'post',
+                    enctype:'multipart/form-data',
+                    action: './upload'});
+    submit = $("<input/>",
+            {type:'submit',
+                id:'submit',
+                value:'Submit'});
+    cancel =$("<input/>",
+            {type:'button',
+                value:'Cancel',
+                style:'display: inline-block;'});
+    upload = $("<input/>",
+            {type:'file',
+                id:'image',
+                name:'image',
+                accept:'image/*;.webm'});
+    spoiler = $("<input/>",
+            {type:'button',
+                id:'toggle'});
+            // meguca uses an image to represent spoiler selection
+            //default => style="background-image: url("https://meguca.org/static/css/ui/pane.png");" 
+            //clicked => style="background-image: url("https://meguca.org/static/spoil/spoil5.png");"
 
-function createarticle(){
+    submit.click(function() {
+        $(replyform).css("display", "table")
+        $(article).remove()
+    });
+    cancel.click(function() {
+        $(replyform).css("display", "table")
+        $(article).remove()
+    });
+    form.append(submit,
+                cancel,
+                spoiler,
+                upload)
+    return form;
+}
+
+
+function createarticle(replyform){
+    replyform.css("display", "none")
     //surrounding post-block for form
     var article = $("<article/>");
     var header = $("<header/>").append(
@@ -36,20 +70,20 @@ function createarticle(){
                              rows:  '1',
                              class: 'themed',
                              autocomplete: 'false',
-                             style: 'width:202.344px',
-                             maxlength: '2000'}));
+                             style: 'width:400px; max-width: 90%; height: 40px;',
+                             maxlength: '2000'}).autogrow({flickering: false}));
     var small = $("<small/>");
-    var form = createForm();
-    article.append( header,
-                    blockquote,
-                    small,
-                    form)
+    var form = createForm(article, replyform);
+    form.prepend(header,
+                blockquote,
+                small)
+    article.append( form )
     return article; }
 
 $(".act.posting").each(function () {
     // create form on clicking [Reply]
     $(this).click(function() {
-        $(this).before(createarticle());
+        $(this).before(createarticle( $(this) ));
     });
 });
 

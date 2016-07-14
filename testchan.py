@@ -7,12 +7,16 @@ from werkzeug import secure_filename, escape
 from pprint import pprint
 import random, string
 import re
+import os
 import dateutil.relativedelta as du
 
+import hashlib
 
 app = Flask(__name__)
 
 imgpath = 'src/imgs/'
+thumbpath = 'src/thumb/'
+
 ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
 app.config['UPLOAD_FOLDER'] = 'static/' + imgpath
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
@@ -84,9 +88,15 @@ def adminonly(fn):
             return general_error('You must be an admin to see this page') # proper would be 401
     return go
 
-@app.route('/', methods=['GET'])
-def root():
-    return redirect(url_for('index', board='v'))
+def hashfile(afile, blocksize=65536):
+    hasher = hashlib.sha256()
+    buf = afile.read(blocksize)
+    while len(buf) > 0:
+        hasher.update(buf)
+        buf = afile.read(blocksize)
+    afile.seek(0,0) # reset the file pointer
+    return hasher.hexdigest()
+
 
 def _validate_post(post):
     """ Does all our robot/spam checking
@@ -148,7 +158,7 @@ def _parse_post(post):
 
 @app.route('/<board>/upload', methods=['POST'])
 def newthread(board):
-    if 'image' not in request:
+    if 'image' not in request.files:
         return general_error('New threads must have an image')
     return _upload(board)
 
@@ -156,7 +166,7 @@ def newthread(board):
 def newpost(board, thread):
     return _upload(board, thread)
 
-@checktime
+#@checktime
 def _upload(board, threadid=None):
     """ handles the entire post upload process, and validation
         Args:
@@ -166,17 +176,26 @@ def _upload(board, threadid=None):
             Redirects to the (new) thread
     """
     def allowed_file(filename):
-        a = filename.rsplit('.', 1)[1]
-        b =  '.' in filename and a in ALLOWED_EXTENSIONS
+        a = filename.rsplit('.', 1)[1] if '.' in filename else None
+        b = a in ALLOWED_EXTENSIONS
         return a, b
 
     # read file and form data
-    image = request.files['file']
-    subject = requests.get('title', default='', type=str).strip()  
-    email =   requests.get('email', default='', type=str).strip() 
-    name =    requests.get('name' , default='', type=str).strip() 
-    post =    requests.get('body' , default='', type=str).strip() 
-    sage =    requests.get('sage' , default='', type=str).strip() 
+    print("starting upload")
+    image = request.files['image']
+    print(type(image))
+    print("got image")
+    subject = request.form.get('title', default='', type=str).strip()  
+    print(subject)
+    email =   request.form.get('email', default='', type=str).strip() 
+    print(email)
+    name =    request.form.get('name' , default='', type=str).strip() 
+    print(name)
+    post =    request.form.get('body' , default='', type=str).strip() 
+    print(post)
+    sage =    request.form.get('sage' , default='', type=str).strip() 
+    print(sage)
+
     if 'password' not in session: # I believe this will occur if cookies are being blocked
         assign_pass()
     password = session['password']
@@ -185,27 +204,35 @@ def _upload(board, threadid=None):
 
     if (not post or post.isspace()) and not image:
         return general_error('Cannot have an empty post') 
-    if not _check_bot(post):
+    if not _validate_post(post):
         return general_error('Spam/Robot detected')
-    if not db._is_thread(threadid):
+    if threadid and not db._is_thread(threadid):
         return general_error('Specified thread does not exist')
     if image:
-        allowed, filetype = allowed_file(image)
-        if allowed:
+        filetype, allowed = allowed_file(image.filename)
+        if not allowed:
             return general_error('File not allowed')
         else:
-            n = random.randint(100000000, 999999999)
-            image.name= "%s.%s" % (n, filetype)
+            n = hashfile(image) # returns hex
+            n = int(n[:16], 16) # more or less like 4chan
+            image.filename= "%s.%s" % (n, filetype)
+            image.mainpath = imgpath
+            image.thumbpath = thumbpath
     # so it's a valid upload in all regards
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], image.name)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
     image.save(filepath)
-    with db.engine.being() as conn:
-        if threadid: 
-            pid = create_post(threadid, filename, post, password, name, email, subject, sage)
-            session['myposts'].append(pid) # we don't care about owning threads
-        else:
-            threadid, pid = create_thread(board, filename, post, password, name, email, subject)
-    return redirect(url_for('thread', threadid=threadid, postid= pid))
+    print("BEFORE")
+    print("board", board)
+    print("thread", threadid)
+    if threadid: 
+        pid = db.create_post(threadid, image.filename, post, password, name, email, subject, sage)
+        session['myposts'].append(pid) # we don't care about owning threads
+    else:
+        threadid, pid = db.create_thread(board, image.filename, post, password, name, email, subject)
+    print("AFTER")
+    print("board", board)
+    print("thread", threadid)
+    return redirect(url_for('thread', board=board, thread=threadid))
 
 def _rel_timestamp(timestamp):
     """ returns a human readable time-delta between timestamp and current time, 
@@ -217,7 +244,8 @@ def _rel_timestamp(timestamp):
             str: "1 minute"; "20 minutes"; "3 hours"; "0 seconds"
     """
     # normalize just forces integer values for time-units
-    delta = du.relativedelta(datetime.datetime.now(), timestamp).normalized()
+    now = datetime.datetime.utcnow()
+    delta = du.relativedelta(now , timestamp).normalized()
     attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
     ts = '{} {} ago'
     for a in attrs:
@@ -247,7 +275,7 @@ def parse_threads(threads):
         db.thread_add_backref(reflist)
     return ts 
 
-@app.route('/<board>/<thread>', methods=['GET'])
+@app.route('/<board>/<thread>/', methods=['GET'])
 def thread(board, thread):
     if not db._is_thread(thread):
         return general_error('Specified thread does not exist')
@@ -257,11 +285,18 @@ def thread(board, thread):
     return render_template('page.html', threads=threads, board=board)
 
 
+@app.route('/', methods=['GET'])
+def root():
+    return redirect(url_for('index', board='v'))
+
 @app.route('/<board>', methods=['GET'])
+@app.route('/<board>/', methods=['GET'])
 @app.route('/<board>/index.html', methods=['GET'])
 def index(board):
     page = request.args.get('page', 0)
-    if not page.isdigit():
+    try:
+        page = int(page) # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
+    except TypeError:    # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
         page = 0
 
     threads = db.fetch_page(board, page)

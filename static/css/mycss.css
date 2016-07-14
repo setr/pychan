@@ -9,5 +9,10 @@ article{
 .act:after{
     content: " ]";
 }
+#trans{
+    max-width: 90%;
+    height: 40px;
+    margin: 0 0 -10px;
+}
 
 

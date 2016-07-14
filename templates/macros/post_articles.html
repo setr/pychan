@@ -51,9 +51,11 @@
         {% set width = "125px" %}
         {% set height= "125px" %}
     # endif 
+    {% set thumbf = "src/thumb/" + filename %}
+    {% set mainf = "src/imgs/" + filename %}
 
     # if filename:
-    {% set link = url_for('static', filename=filename) %}
+    {% set link = url_for('static', filename= mainf) %}
     <figure>
         <figcaption>
         <!-- imgsearch urls -->
@@ -66,37 +68,6 @@
     # endif
 {%- endmacro %}
 
-
-{% macro op(threadid, post) %}
-    {% set tid = threadid %}
-    {% set pid = post.id %} 
-    <section id={{tid}}>
-    <!-- I dont know why, but header/figure order is reversed for meguca's op vs threads
-        I'm just going to do the same here, for now. Probably fucks with the css -->
-    {{ _figure( post.filename ) }}
-    {{ _header( threadid, post, isop=true ) }}
-    <blockquote>
-        {{ post.body }}
-    </blockquote>
-    <!-- TODO: this should obviously be dynamic -->
-    <span class="omit"> 600 replies and 35 images omitted </span>
-    {{ _replies( post.tails )}}
-{%- endmacro %}
-
-
-{% macro post(threadid, post) %}
-    {% set pid = post.postid %}
-    <article id="{{pid}}">
-        {{ _header( threadid, post, isop=false) }}
-        {% if post.filename %}
-            {{ _figure( post.filename )}}
-        {% endif%}
-        <blockquote>
-            {{ post.body }}
-        <blockquote>
-        {{ _replies( post.tails )}}
-    </article>
-{%- endmacro %}
 
 {% macro merge(threadid, post, isop) %}
     {% set tid = threadid %}
