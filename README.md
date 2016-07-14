@@ -39,7 +39,7 @@ then go to localhost:5000
 ### CONVENIENCE
 - [ ] Auto-update threads (JS/AJAX)
 
-### NON-FEATURES
+### REFACTOR
 - [ ] A proper config file (PYTHON)
 - [ ] Move flask routing and helper functions into seperate files
 - [ ] DB needs to be split into an entry point file and helper functions
