@@ -42,7 +42,7 @@ then go to localhost:5000
 ### REFACTOR
 - [ ] A proper config file (PYTHON)
 - [ ] Move flask routing and helper functions into seperate files
-- [ ] DB needs to be split into an entry point file and helper functions
+- [x] DB needs to be split into an entry point file and helper functions
         - with the helper functions always consuming engine transaction objects
         - and the entry points always spawning them
 - [ ] Give files proper names (ie not testchan)
