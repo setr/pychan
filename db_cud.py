@@ -1,4 +1,5 @@
-from config import config 
+from config import cfg
+from db_meta import db
 import sqlalchemy
 from sqlalchemy.sql import func
 from sqlalchemy import select, text, desc, bindparam, asc, and_
@@ -6,24 +7,38 @@ import os
 import bcrypt
 import time
 import datetime
-
 from contextlib import contextmanager
+
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlite3 import Connection as SQLite3Connection
 
 # this file handles all CUD operations
 # every function here consumes a connection
-# and operates using transactions (regardless of sql interaction)
+# and operates using transactions (regardless of complexity and strict-dependencies of sql interaction)
 #  life is just easier with a consistent assumption, and I'm 
 #  assuming there won't be any real overhead penalities.
 
-# Also, sqlaclchemy will handle the nested transcation logic for us
+# Also, sqlalchemy will handle the nested transcation logic for us
 # and this means that we can have functions calling each other freely
 
 # NOTE: NO FUNCTION IN THIS FILE WILL CLOSE THE CONNECTION
 
-db = "sqlite:///db1.sqlite"
-engine= slave= None
-metatadata= None
-boards= backrefs= threads= posts= mods= banlist= None # tables
+engine, slave= db.engine, db.slave
+metatadata= db.metadata
+boards = db.boards
+backrefs = db.backrefs
+threads = db.threads
+posts = db.posts
+mods = db.mods
+banlist = db.banlist
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    """ forces sqlite to enforce foreign key relationships """
+    if isinstance(dbapi_connection, SQLite3Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
 
 @contextmanager
 def transaction(conn):
@@ -34,27 +49,6 @@ def transaction(conn):
         trans.rollback()
     else:
         trans.commit()
-
-def fetch_metadata(db):
-    """ Reads the database for table structure
-    I'm not sure how well this will actually pan out
-        We're only using Strings, Integers, Booleans and DateTime datatypes, 
-        so it shouldn't have any real trouble. But Booleans/DateTime objects
-        are often quite problematic... """
-    global engine, slave
-    global metatadata
-    global boards, threads, posts, mods, banlist, backrefs
-    engine = sqlalchemy.create_engine(db) #, strategy='threadlocal')
-    slave = engine
-
-    metadata = MetaData()
-    metadata.reflect(bind=engine)
-    boards = metadata.tables['boards']
-    threads = metadata.tables['threads']
-    posts = metadata.tables['posts']
-    mods = metadata.tables['mods']
-    banlist = metadata.tables['banlist']
-    backrefs = metadata.tables['backrefs']
 
 def create_post(conn, thread, filename, body, password, name='', email='', subject='',  sage=False):
     """ Submits a new post, without value validation
@@ -85,10 +79,13 @@ def create_post(conn, thread, filename, body, password, name='', email='', subje
                                     password=password,
                                     sage=sage)
     postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == thread)
-    talive =  select([threads.c.alive]).where(threads.c.thread_id == thread)
+    talive =  select([threads.c.alive]).where(threads.c.id == thread)
 
     with transaction(conn):
-        sage = (conn.execute(isautosaged) > config.thread_max_posts) or (not conn.execute(talive))
+        count = conn.execute(postcount).fetchone()[0]
+        isalive = conn.execute(talive).fetchone()[0]
+
+        sage = (count > cfg.thread_max_posts) or (not isalive)
         if sage: # force sage
             query.values(sage=sage)
 
@@ -127,7 +124,7 @@ def cleanup_threads(boardname, conn=None):
         DELETE FROM posts WHERE posts.thread_id in (select threads.id from threads)
         """
  
-    thread_max = config.index_max_pages * config.index_threads_per_page
+    thread_max = cfg.index_max_pages * cfg.index_threads_per_page
     data = {'board_title' : boardname,
             'thread_max' : thread_max,
             'false' : str(sqlalchemy.false())}
@@ -146,7 +143,7 @@ def mark_thread_dead(conn, threadid):
         conn.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-def create_thread(conn, boardname, filename, body, password, name='', email='', subject=''):
+def create_thread(conn, boardname, filename, body, password, name, email, subject):
     """ Submits a new thread, without value checking. 
         Args:
             board (int): board name
@@ -183,22 +180,33 @@ def create_thread(conn, boardname, filename, body, password, name='', email='', 
         #cleanup_threads(conn, boardname)
     return threadid, postid
 
-def create_board(conn, board_title, board_subtitle, board_slogan):
+def create_board(conn, title, subtitle, slogan, active=True):
     """ Creates a new board (multiple new tables)
         Args:
-            board_title (str): ie /v/ (just 'v')
-            board_subtitle (str): ie vidya
-            board_slogan (str): ie /v/ has come too.
+            title (str): ie /v/ (just 'v')
+            subtitle (str): ie vidya
+            slogan (str): ie /v/ has come too.
         Returns:
             id, str: board
     """
-    query = boards.insert().values(title=board_title,
-                                    subtitle=board_subtitle,
-                                    slogan=board_slogan,
-                                    active=True)
+    query = boards.insert().values(title=title,
+                                    subtitle=subtitle,
+                                    slogan=slogan,
+                                    active=active)
     with transaction(conn):
-        boardid = engine.execute(query).inserted_primary_key[0]
+        boardid = conn.execute(query).inserted_primary_key[0]
     return boardid
+
+def create_backrefs_for_thread(conn, backreflist):
+    with transaction(conn):
+        query = backrefs.insert().prefix_with("OR REPLACE")
+        for b in backreflist:
+            tail = b[0]
+            heads = b[1]
+            data = [{ "head": head,
+                        "tail": tail}
+                        for head in heads]
+            conn.execute(query, data)
 
 def delete_thread(conn, threadid):
     """ wipe out a whole thread """
@@ -206,7 +214,6 @@ def delete_thread(conn, threadid):
     d_threadq = threads.delete().where(threads.c.op_id == bindparam('postid')) 
     # delete all posts for the thread
     d_postq = posts.delete().where(posts.c.thread_id == bindparam('threadid')) 
-
     with transaction(conn):
         conn.execute(delthreadq, postid=postid) 
         conn.execute(delpostq, threadid=threadid)

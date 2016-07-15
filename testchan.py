@@ -29,11 +29,11 @@ database = 'sqlite:///db1.sqlite'
 
 app.secret_key = 'Bd\xf2\x14\xbbi\x01Gq\xc6\x87\x10BVc\x9c\xa4\x08\xdbk%\xfa*\xe3' # os.urandom(24)
 
-@app.before_first_request
-def load_tables():
-    """ collects all the metadata as soon as the app boots up
-    well, only acts when the first request comes in but whatever"""
-    db._fetch_metadata(database)
+#@app.before_first_request
+#def load_tables():
+#    """ collects all the metadata as soon as the app boots up
+#    well, only acts when the first request comes in but whatever"""
+#    db._fetch_metadata(database)
 
 @app.before_request
 def assign_session_params():
@@ -272,7 +272,7 @@ def parse_threads(threads):
             t.append(p)
         ts.append(t)
     if reflist:
-        db.thread_add_backref(reflist)
+        db.create_backrefs_for_thread(reflist)
     return ts 
 
 @app.route('/<board>/<thread>/', methods=['GET'])
@@ -300,8 +300,8 @@ def index(board):
         page = 0
 
     threads = db.fetch_page(board, page)
-    if not threads:
-        return e404()
+    #if not threads:
+    #    return e404()
 
     board = db.fetch_board_data(board)
     threads = parse_threads(threads)
