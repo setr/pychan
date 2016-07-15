@@ -35,7 +35,8 @@ then go to localhost:5000
 - [ ] Hover reply posts
 
 ### REPLY FORM
-- [ ] Auto-resize textarea for inject-reply input: https://github.com/ro31337/jquery.ns-autogrow (JS)
+- [x] Auto-resize textarea for inject-reply input: https://github.com/ro31337/jquery.ns-autogrow (JS)
+       - if width, height isn't set on the text-area, this thing sets it to 0 which is fucking retarded 
 - [ ] Primary input form  (JINJA)
 - [ ] Actual POSTing of reply data (JINJA/PYTHON)
        - [x] body + file can POST 
