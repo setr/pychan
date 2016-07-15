@@ -1,3 +1,4 @@
+from config import config
 import sqlalchemy
 from sqlalchemy.sql import func
 from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
@@ -6,6 +7,7 @@ import os
 import bcrypt
 import time
 import datetime
+from contextlib import contextmanager
 
 # defined by _create_db, _fetch_metadata, or
 db = "sqlite:///db1.sqlite"
@@ -13,14 +15,17 @@ engine= slave= None
 metatadata= None
 boards= backrefs= threads= posts= mods= banlist= None # tables
 
-#config options
-# todo: move to its own file
-class config():
-    index_threads_per_page = 10           # n threads per index page
-    index_posts_per_thread = 5              # latest n posts for thread; displayed on index pages
-    thread_max_posts = 500      # threads with more than n posts can no longer be bumped
-    post_max_length = 2000          # 4chan max post length, on /v/ at least
-    index_max_pages = 10
+@contextmanager
+def connection(engine):
+    """ spawns, and closes, a new connection """
+    try:
+        conn = engine.connect()
+        yield conn
+    except None:
+        pass
+    finally:   
+        conn.close()
+    
 
 def with_slave(fn):
     """ Simple decorator to switch to a slave DB for reads
@@ -93,6 +98,31 @@ def _create_db(db):
     metadata.drop_all(engine)
     metadata.create_all(engine)
     
+def delete_post(conn, postid, password, ismod=False):
+    """ Validates that the user can delete the post, then deletes it
+        If the post is the op, the whole thread will be deleted as well.
+
+        Args:
+            postid (int): id of post to be deleted
+            password (str): plaintext password for the user (auto-gen'd), should have been stored in the cookie
+            ismod (bool): is this a validated mod?
+    """
+    candel = False
+    done = False
+    password = password.encode('utf-8')
+    if not ismod:
+        query = select([posts.c.password]).where(postid == bindparam('postid'))
+        hashed = engine.execute(query, postid=postid).fetchone()['password']
+        candel = bcrypt.hashpw(password, hashed) == hashed
+
+    if ismod or candel:
+        with connection(engine) as conn:
+            threadid = _fetch_threadid(post_id)
+            if threadid: # if it had returned, its was the op for a thread
+                delete_thread(conn, threadid)
+            else:
+                delete_post(conn, postid)
+
 def _create_testdb():
     """ Builds an in-memory sqlite db """
     _create_db('sqlite:///:memory:')
@@ -130,6 +160,13 @@ def _fetch_metadata(db):
 
 @with_slave
 def fetch_thread(threadid):
+    """ gets all the posts for a single thread
+        Args:
+            threadid (int): id of thread
+        Returns:
+            list: the original post, followed by every other post in order of id
+                each post is dicts
+    """
     op_query = select([posts]).where(text('posts.id = (select op_id from threads where threads.id = :threadid)'))
     posts_query = select([posts]).where(text(""" 
                             posts.thread_id = :threadid 
