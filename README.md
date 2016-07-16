@@ -109,8 +109,8 @@ then go to localhost:5000
        - completed in the form of a python class. May use configparser to have an ascii-based config, but probably not worth the effort
 - [ ] Move flask routing and helper functions into seperate files
 - [x] DB needs to be split into an entry point file and helper functions
-        - with the helper functions always consuming engine transaction objects
-        - and the entry points always spawning them
+       - with the helper functions always consuming engine transaction objects
+       - and the entry points always spawning them
 - [ ] Give files proper names (ie not testchan)
 - [ ] Write some actual fucking unit tests
 
