@@ -5,11 +5,16 @@ import db_cud
 
 #sqlalchemy
 import sqlalchemy
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, label
 from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
 from sqlalchemy import select, text, desc, bindparam, asc, and_
 
+from werkzeug import escape
+
+import dateutil.relativedelta as du
+
 # python batteries
+import re
 import os
 import bcrypt
 import time
@@ -34,6 +39,7 @@ boards = db.boards
 backrefs = db.backrefs
 threads = db.threads
 posts = db.posts
+files = db.files
 mods = db.mods
 banlist = db.banlist
 
@@ -87,9 +93,24 @@ def delete_post(postid, password, ismod=False, engine=None):
                 db_cud.delete_post(conn, postid)
 
 @with_master
-def create_post(thread, filename, body, password, name='', email='', subject='', sage=False, engine=None):
+def create_post(thread, filedatas, body, parsed, password, name='', email='', subject='', sage=False, engine=None):
+    """ Submits a new thread, without value checking. 
+        Args:
+            thread (int): thread_id
+            name (str): poster's name
+            email (str): 
+            files(list(dict)): list of file data
+                filename (str): name of file on disk (path implied by config'd dir) with filetype
+                filetype (str): pdf, jpeg, etc
+                spoilered (bool): is it spoilered?
+            post (str): unparsed body text
+            password (str): plaintext password for post; hashed with bcrypt before storing.
+        Returns:
+            int: thread_id; None if it failed
+            int: post_id
+    """
     with connection(engine) as conn:
-        pid = db_cud.create_post(conn, thread, filename, body, password, name, email, subject, sage)
+        pid = db_cud.create_post(conn, thread, filedatas, body, parsed, password, name, email, subject, sage)
     return pid
 
 
@@ -113,21 +134,173 @@ def fetch_thread(threadid, engine=None):
             list: the original post, followed by every other post in order of id
                 each post is dicts
     """
-    op_query = select([posts]).where(text('posts.id = (select op_id from threads where threads.id = :threadid)'))
-    posts_query = select([posts]).where(text(""" 
-                            posts.thread_id = :threadid 
-                            AND posts.id != (SELECT op_id from threads where threads.id =:threadid)""")).\
+    op_id = select([threads.c.op_id]).where(threads.c.id == threadid).as_scalar()
+    op_query = select([posts]).where(posts.c.id == op_id)
+    posts_query = select([posts]).where(and_(
+                    posts.c.thread_id == threadid,
+                    posts.c.id != op_id)).\
                   order_by(asc(posts.c.id))
 
     op_result = engine.execute(op_query, threadid=threadid).fetchone()
     posts_result = engine.execute(posts_query, threadid=threadid).fetchall() 
     posts_result.insert(0, op_result)
+    post_list = inject(posts_result)
+    for post in post_list:
+        p = dict(post.items())
+        p['h_time'] = _rel_timestamp(p['timestamp'])
+    return post_list
+
+def _rel_timestamp(timestamp):
+    """ returns a human readable time-delta between timestamp and current time,
+    with only the biggest time unit
+    ie 40 hr difference => 1 day
+        Args:
+            timestamp (datetime): original tim
+        Returns:
+            str: "1 minute"; "20 minutes"; "3 hours"; "0 seconds"
+    """
+    # normalize just forces integer values for time-units
+    now = datetime.datetime.utcnow()
+    delta = du.relativedelta(now , timestamp).normalized()
+    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
+    ts = '{} {} ago'
+    for a in attrs:
+        num = getattr(delta, a)
+        if num:
+            ts = ts.format(num, a if num > 1 else a[:-1]) # a = minutes, a[-1] = minute
+            break
+    else: # no break was encountered in for loop
+        ts = ts.format(0, 'seconds')
+    return ts
+
+def parse_post(post, post_id=None):
+    """ injects all our html formatters and adds any backrefs found to the db
+    should only be used on post creation, or if the post was future-referencing
+        Args:
+            post (str): the full content of the post
+            post_id (int): If this an update, then we need the post being updated.
+        Returns:
+            str: the post with all our new html injected; HTML-safe
+            list: all post ids being referred to, for backref creation
+    """
+    # we need to parse out the pids
+    # then form the html for it
+
+    # werkzeug escape: Replace special characters “&”, “<”, “>” and (”) to HTML-safe sequences.
+    # the regex themselves
+        # if an html special character is in the regex, then don't escape() the regex.
+        # instead, you'll have to use the html sequences in the regex.
+        # searching after the post was escaped.
+    f_ref = escape('>>(\d+)(\s)?')   # >>123123
+    f_spoil = escape('><(.*)><')     # >< SPOILERED ><
+    f_imply = escape('>.+')          # >implying
+
+    f_ref=   re.compile(f_ref)
+    f_spoil= re.compile(f_spoil, re.DOTALL) 
+    f_imply= re.compile(f_imply, re.MULTILINE) 
+
+    # what they turn into
+    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{space}'
+    spoiler = '<del class> {} </del>'
+    implying = '<em> {} </em>'
+
+    addrefs = list()
+    def r_ref(match):
+        pid = int(match.group(1))
+        # preserves following whitespace; particularly \n
+        space = match.group(2) if match.group(2) else ""
+        tid = _fetch_thread_of_post(pid)
+        addrefs.append(pid) # we still want to create the backref even if the post doesn't exist
+                            # so you can do future-referencing. Just don't link it yet.
+        if tid: # if no tid, then the post must not exist.
+            return backref.format(tid=tid, pid=pid, space=space)
+        else:
+            return ">>{}{}".format(pid, space) # so it doesn't get read by other regex's
+    r_imply = lambda match: implying.format(match.group(0))
+    r_spoil = lambda match: spoiler.format(match.group(1))
+
+    post = escape(post) # escape the thing, before we do any regexing on it
+    post = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in post.splitlines()])
+    post = re.sub(f_ref, r_ref, post)      # post-references must occur before imply (>>num)
+    post = re.sub(f_spoil, r_spoil, post)  # spoiler must occur before imply (>< text ><)
+    post = re.sub(f_imply, r_imply, post)  # since is looking for a subset  (>text)
+    post = re.sub('\n', '\n<br>\n', post)
+    if post_id:
+        update_post_parsed(post, post_id) # store the parsed version in the db
+        create_backrefs((post_id, addrefs)) # add our new references to the db
+    # and we finally return an HTML-safe version of the post, with our stylings injected.
+    return post, addrefs
+
+@with_master
+def update_post_parsed(post, post_id, engine=None):
+    with connection(engine) as conn:
+        db_cud.update_post_parsed(conn, post, post_id)
+
+def fetch_backrefs(postid, engine):
+    """ Gets the list of all posts pointing to a given post
+        Args:
+            postid (int): id of the post in question
+        Returns:
+            List(ResultProxy): [{backrefs.tail, posts.thread_id}]
+    """
+    q = """SELECT backrefs.tail, posts.thread_id FROM backrefs 
+            JOIN posts ON backrefs.tail = posts.id
+            WHERE backrefs.head = :postid
+            ORDER BY backrefs.tail"""
+    stmt = text(q).columns(backrefs.c.tail, posts.c.thread_id)
+    return engine.execute(q, postid=postid).fetchall()
+
+@with_slave
+def fetch_files(postid, engine=None):
+    q = select([files.c.filename, files.c.filetype, files.c.spoilered]).where(files.c.post_id == postid).order_by(files.c.post_id)
+    return engine.execute(q).fetchall()
+
+@with_slave
+def count_hidden(thread_id, engine=None):
+    """ Given a thread_id, get the number of posts/files not displayed on the index pages
+    posts-for-thread - posts-shown - op (always shown, 1)
+        Args:
+            thread_id (int): id of thread in question
+        Returns:
+            tuple: 
+                Number of posts omitted
+                Number of files omitted
+    """ 
+
+    excess = cfg.index_posts_per_thread + 1  # posts in thread - posts displayed - op_post (1)
+    limit_clause = select([func.count(posts.c.id) - excess]).\
+            where(posts.c.id == thread_id).as_scalar()
+    op_id = select([threads.c.op_id]).where(threads.c.id == thread_id).as_scalar()
+
+    relevant_posts = select([posts.c.id]).\
+            where(and_(posts.c.id != op_id,
+                        posts.c.thread_id == thread_id)).limit( limit_clause )
+    relevant_posts = relevant_posts.apply_labels()
+
+    post_count = select([func.count(relevant_posts)])
+    file_count = select([func.count(files.c.id)]).select_from(files.join(relevant_posts))
+    final = select([post_count, file_count])
+    return engine.execute(final).fetchone()
+
+
+def inject(posts_result):
+    """ For handling any lists of stuff the posts need
+    list of backrefs
+    list of files
+        Returns:
+            list: list of posts converted to normal dicts,
+                with the additional fields:
+                'tails': any post ids referring to this one
+                'files': dict of file result proxies
+    """
     done = list()
     for p in posts_result:
-        p = dict(p.items()) # so I can inject stuff into it
+        p = dict(p.items())
         p['tails'] = fetch_backrefs(p['id'])
+        p['files'] = fetch_files(p['id'])
         done.append(p)
     return done
+
 
 @with_slave 
 def fetch_page(board, pgnum=0, engine=None):
@@ -178,12 +351,8 @@ def fetch_page(board, pgnum=0, engine=None):
         op_result = engine.execute(op_query, op_data).fetchone()
         posts_result = engine.execute(posts_query, posts_data).fetchall() 
         posts_result.insert(0, op_result)
-        done = []
-        for p in posts_result:
-            p = dict(p.items()) # so I can inject stuff into it
-            p['tails'] = fetch_backrefs(p['id'])
-            done.append(p)
-        pagedata.append(done)
+        post_list = inject(posts_result)
+        pagedata.append(post_list)
     return pagedata 
 
 @with_master
@@ -230,13 +399,16 @@ def mark_thread_autosage(threadid, engine=None):
     return True
     
 @with_master
-def create_thread(boardname, filename, body, password, name='', email='', subject='', engine=None):
+def create_thread(boardname, filedatas, body, parsed, password, name='', email='', subject='', engine=None):
     """ Submits a new thread, without value checking. 
         Args:
-            board (int): board name
+            board (str): board name
             name (str): poster's name
             email (str): 
-            filename (str): filename, on disk (path is implied by config'd dir)
+            files(list(dict)): list of file data
+                filename (str): name of file on disk (path implied by config'd dir) with filetype
+                filetype (str): pdf, jpeg, etc
+                spoilered (bool): is it spoilered?
             post (str): unparsed body text
             password (str): plaintext password for post; hashed with bcrypt before storing.
         Returns:
@@ -244,8 +416,9 @@ def create_thread(boardname, filename, body, password, name='', email='', subjec
             int: post_id
     """
     with connection(engine) as conn:
-        threadid, postid = db_cud.create_thread(conn, boardname,
-                                filename, body,
+        threadid, postid = db_cud.create_thread(conn, 
+                                boardname, filedatas, 
+                                body, parsed,
                                 password, name,
                                 email, subject)
     return threadid, postid
@@ -310,19 +483,46 @@ def validate_mod(username, password, engine=None):
                 where(username=bindparam('username')), username=username)['password']
     return bcrypt.hashpw(password, hashed) == hashed
 
+@with_slave
+def _check_backref_preexistence(post_id, engine=None):
+    """ checks if the post already has references to it. 
+    If it does, those posts need to be reparsed.
+        Args:
+            post_id: id of the post being created
+    """
+    dirty = select([backrefs.c.tail]).\
+         where(backrefs.c.head == post_id).\
+         order_by(asc(backrefs.c.id)).apply_labels()
+    dirty_postids = [d[0] for d in engine.execute(dirty).fetchall()]
+    for pid in dirty_postids:
+        body = engine.execute(select([posts.c.body]).where(posts.c.id == pid)).fetchone()[0]
+        parse_post(body, pid)
+
 def makedata():
     v = create_board('v', 'vidya', 'vidyagames')
     a = create_board('a', 'anything', 'anything at all')
-    vt1, vp1 = create_thread('v', 'img2.png', 'op', 'vp1')
-    vt2, vp2 = create_thread('v', 'img2.png', 'op', 'vp2')
-    vt3, vp3 = create_thread('v', 'img2.png', 'op', 'vp3')
-    vt4, vp4 = create_thread('v', 'img2.png', 'op', 'vp4')
-    vt5, vp5 = create_thread('v', 'img2.png', 'op', 'vp4')
+    img1 = [{'filename':'img1.png', 
+            'filetype': 'png',
+            'spoilered': False}]
+    img2 = [{'filename':'img2.png', 
+            'filetype': 'png',
+            'spoilered': False}]
+    vt1, vp1 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp1')
+    vt2, vp2 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp2')
+    vt3, vp3 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp3')
+    vt4, vp4 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp4')
+    vt5, vp5 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp4')
     for t in [vt1,vt2,vt3,vt4,vt5]:
         for i in range(5):
-            create_post(t, 'img1.png', '>>%s \n post %s TESTING TESTING TESTING TESTING\n >fuk \n\n >< spoil \n spoil2 \n ><'%(i+10, i), 'vp%s'%i, 'anonymous', 'email', 'subject')
-            create_post(t, 'img1.png', '>>%s \n post %s TYPE2 \n >fuk\n>sdfsdf\ndsfjsdoi>sdofkdspk \n\n >< spoil \n spoil2 \n ><'%(i, i), 'vp%s'%i, 'anonymous', 'email', 'subject')
-        create_post(vt1, '', 'saged', 'saged', 'saged', 'saged', 'saged', True)
+            p1 = '>>%s \n post %s TESTING TESTING TESTING TESTING\n >fuk \n\n >< spoil \n spoil2 \n ><'%(i+10, i)
+            p2 = '>>%s \n post %s TYPE2 \n >fuk\n>sdfsdf\ndsfjsdoi>sdofkdspk \n\n >< spoil \n spoil2 \n ><'%(i, i)
+            p1p, addrefs1 = parse_post(p1)
+            p2p, addrefs2 = parse_post(p2)
+            pid1= create_post(t, img1, p1, p1p, 'vp%s'%i, 'anonymous', 'email', 'subject')
+            pid2= create_post(t, img1, p2, p2p, 'vp%s'%i, 'anonymous', 'email', 'subject')
+            create_backrefs((pid1, addrefs1))
+            create_backrefs((pid2, addrefs2))
+        create_post(vt1, {}, '',  'saged', 'saged', 'saged', 'saged', 'saged', True)
 
 if __name__ == '__main__':
     #db.create_db()

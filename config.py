@@ -15,7 +15,7 @@ class Config():
     # Master/Slave URIs, if replicating the DB.
     # Master should handle writes, and any reads immediately following a write
     # Only pure reads should use the slave.
-    master = "sqlite:///dbq.sqlite"
+    master = "sqlite:///db1.sqlite"
     slave  = None # if None, slave == master aka there is only one db.
 
     # board configs

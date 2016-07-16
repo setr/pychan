@@ -42,7 +42,7 @@
     </small>
 {%- endmacro %}
 
-{% macro _figure(filename, isop) %}
+{% macro _figure(filelist, isop) %}
     ## based on meguca sizing
     # if isop:                      
         {% set width = "250px" %}
@@ -51,21 +51,36 @@
         {% set width = "125px" %}
         {% set height= "125px" %}
     # endif 
-    {% set thumbf = "src/thumb/" + filename %}
-    {% set mainf = "src/imgs/" + filename %}
 
-    # if filename:
-    {% set link = url_for('static', filename= mainf) %}
-    <figure>
-        <figcaption>
-        <!-- imgsearch urls -->
-        </figcaption>
-        <a target="_blank" rel="nofollow" href="{{ link }}">
-            <!-- this should be a thumbnail, eventually -->
-            <img src="{{ link }}" style="max-width: {{width}}; max-height: {{height}}">
-        </a>
-    </figure>
-    # endif
+    # for f in filelist:
+        {% set tf = '' %}
+        # if f.spoilered:
+            {% set tf = 'spoilered.jpg' %}
+        # elif f.filetype == 'pdf':
+            {% set tf = 'pdf.jpg' %}
+        # else:
+            {% set tf = f.filename %} 
+        # endif
+        {% set filename = f.filename %}
+        # if not tf:
+            {% set tf= '' %}
+            {% set filename= '' %}
+        # endif
+
+
+        {% set thumbf = "src/thumb/" + tf %} ## this should be changed to cfg.option
+        {% set mainf = "src/imgs/" + filename %} ## this should be changed to cfg.option
+        {% set link = url_for('static', filename= mainf) %}
+        <figure>
+            <figcaption>
+            <!-- imgsearch urls -->
+            </figcaption> ## we still need to add proper thumbnails
+            <a target="_blank" rel="nofollow" href="{{ link }}">
+                <!-- this should be a thumbnail, eventually -->
+                <img src="{{ link }}" style="max-width: {{width}}; max-height: {{height}}">
+            </a>
+        </figure>
+    # endfor
 {%- endmacro %}
 
 
@@ -73,14 +88,14 @@
     {% set tid = threadid %}
     {% set pid = post.id %} 
     # if isop:
-        {{ _figure( post.filename, isop=true) }}  ## meguca op max h/w is 250x250
+        {{ _figure( post.files, isop=true) }}  ## meguca op max h/w is 250x250
         {{ _header( threadid, post, isop=true )}}
     # else:
         {{ _header( threadid, post, isop=false )}}
-        {{ _figure( post.filename, isop=false ) }} ## meguca op max h/w is 125x125
+        {{ _figure( post.files, isop=false ) }} ## meguca op max h/w is 125x125
     # endif
     <blockquote>
-        {{ post.body | safe}}
+        {{ post.parsed | safe}}
     </blockquote>
     {{ _replies( post.tails ) }}
     # if isop:

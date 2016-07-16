@@ -58,13 +58,20 @@ class DB():
                 Column('name'      , String(30)),
                 Column('email'     , String(30)),
                 Column('subject'   , String(50)),
-                Column('filename'  , String(255)), # max length of linux filenames
                 Column('body'      , String(cfg.post_max_length) , nullable=False),
+                Column('parsed'    , Text),
                 Column('password'  , String(60)                     , nullable=False), # bcrypt output
                 Column('timestamp' , DateTime                       , default=datetime.datetime.utcnow))
+        self.files = Table('files', self.metadata,
+                Column('id', Integer, primary_key=True),
+                Column('post_id', Integer, ForeignKey("posts.id", **cascade)),
+                Column('filename', String(20), nullable=False), # size of the hash we're saving with
+                Column('filetype', String(4), nullable=False),  # .pdf, .jpeg, etc
+                Column('spoilered', Boolean, nullable=False)) 
         self.backrefs = Table('backrefs', self.metadata,
                 Column('id'   , Integer , primary_key=True)     ,
-                Column('head' , Integer , ForeignKey("posts.id" , **cascade)) , # post being pointed to
+                Column('head' , Integer), # post being pointed to; 
+                                          # doesn't need to currently exist (future-pointing)
                 Column('tail' , Integer , ForeignKey("posts.id" , **cascade)) , # post doing the pointing
                 UniqueConstraint('head' , 'tail'))
         self.mods = Table('mods', self.metadata,

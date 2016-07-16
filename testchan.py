@@ -1,14 +1,12 @@
 import db2 as db
+from config import cfg
 import datetime
 from flask import Flask, render_template, request
 from flask import url_for, flash, redirect, session
 from flask import send_from_directory, Markup 
-from werkzeug import secure_filename, escape
 from pprint import pprint
 import random, string
-import re
 import os
-import dateutil.relativedelta as du
 
 import hashlib
 
@@ -76,7 +74,6 @@ def checktime(fn):
         return fn(*args, **kwargs)
     return go
 
-
 def adminonly(fn):
     """ Decorator
     Checks if the user is currently a mod
@@ -108,56 +105,6 @@ def _validate_post(post):
     """
     return True
 
-def _parse_post(post):
-    """ injects all our html formatters and adds any backrefs found to the db
-    However, I'm not sure we should be doing this on the server side
-    especially as currently, we're not actually saving the converted text
-    reparsing everything on every refresh..
-        Args:
-            post (str): the full content of the post
-        Returns:
-            str: the post with all our new html injected 
-            list: all post ids being referred to, for backref creation
-    """
-    # we need to parse out the pids
-    # then form the html for it
-    f_ref=   re.compile('&gt;&gt;(\d+)(\s)?') # >>123123
-    f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILERED >< 
-    f_imply= re.compile('^&gt;.+', re.MULTILINE) # >implying
-    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{you}{space}'
-    spoiler = '<del class> {} </del>'
-    implying = '<em> {} </em>'
-    
-    mypids = session['myposts']
-    addrefs = list()
-    def r_ref(match): 
-        pid = int(match.group(1))
-        # preserves following whitespace; particularly \n
-        space = match.group(2) if match.group(2) else ""
-        tid = db._fetch_thread_of_post(pid)
-        addrefs.append(pid) # we still want to create the backref, even if the thread doesn't exist
-                            # so you can do future-referencing. Just don't link it yet.
-        if tid:
-            you = " (You) " if pid in mypids else ""
-            return backref.format(tid=tid, pid=pid, space=space, you=you)
-        else:
-            return ">>{}{}".format(pid, space) # so it doesn't get read by any other filters
-    r_imply = lambda match: implying.format(match.group(0))
-    r_spoil = lambda match: spoiler.format(match.group(1))
-
-    # currently, we're escaping the text, then regex substituting on to it
-    # and using unescaped markup for substitutions, so it gets injected correctly
-    # which is why the regex is hunting for &gt;&lt; instead of >< 
-
-    post = escape(post) # HTML escaping, from werkzeug
-    post = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in post.splitlines()])
-    post = re.sub(f_ref, r_ref, post)      # post-references must occur before imply (>>num)
-    post = re.sub(f_spoil, r_spoil, post)  # spoiler must occur before imply (>< text ><)
-    post = re.sub(f_imply, r_imply, post)  # since is looking for a subset  (>text)
-    post = re.sub('\n', '\n<br>\n', post)
-
-    return post, addrefs
-
 
 @app.route('/<board>/upload', methods=['POST'])
 def newthread(board):
@@ -184,13 +131,15 @@ def _upload(board, threadid=None):
         return a, b
 
     # read file and form data
-    image = request.files['image']
-    subject = request.form.get('title', default='', type=str).strip()  
-    email =   request.form.get('email', default='', type=str).strip() 
-    name =    request.form.get('name' , default='', type=str).strip() 
-    post =    request.form.get('body' , default='', type=str).strip() 
-    sage =    request.form.get('sage' , default='', type=str).strip() 
+    image     = request.files['image']
+    subject   = request.form.get('title', default= '', type= str).strip()
+    email     = request.form.get('email', default= '', type= str).strip()
+    name      = request.form.get('name' , default= '', type= str).strip()
+    post      = request.form.get('body' , default= '', type= str).strip()
+    sage      = request.form.get('sage' , default= '', type= str).strip()
+    spoilered = request.form.get('spoilered', default= False, type= bool)
 
+    files = dict()
     if 'password' not in session: # I believe this will occur if cookies are being blocked
         assign_pass()
     password = session['password']
@@ -211,65 +160,24 @@ def _upload(board, threadid=None):
             n = hashfile(image) # returns hex
             n = int(n[:16], 16) # more or less like 4chan
             image.filename= "%s.%s" % (n, filetype)
-            image.mainpath = imgpath
-            image.thumbpath = thumbpath
+            # files is whats actually being passed to the db
+            files['filename'] = image.filename
+            files['filetype'] = filetype
+            files['spoilered'] = spoilered
     # so it's a valid upload in all regards
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
         image.save(filepath)
+    parsed_body, reflist = db.parse_post(post) #  we should probaby save the parsed body instead of unparsed
     if threadid: 
-        pid = db.create_post(threadid, image.filename, post, password, name, email, subject, sage)
+        pid = db.create_post(threadid, [files], post, parsed_body, password, name, email, subject, sage)
     else:
-        threadid, pid = db.create_thread(board, image.filename, post, password, name, email, subject)
-    # TODO: This is stupid as fuck
-    # the problem is that when we read a thread, we do it _before_ we create the backrefs
-    parsed_body, reflist = _parse_post(post) #  we should probaby save the parsed body instead of unparsed
+        threadid, pid = db.create_thread(board, [files], post, parsed_body, password, name, email, subject)
     if reflist:
         db.create_backrefs((pid,reflist))
+    db._check_backref_preexistence(pid) # check if this post was future-referenced, and reparse if neccessary
     session['myposts'].append(pid)
     session.modified = True # necessary to actually save the session change
-    # END TODO
     return redirect(url_for('thread', board=board, thread=threadid))
-
-def _rel_timestamp(timestamp):
-    """ returns a human readable time-delta between timestamp and current time, 
-    with only the biggest time unit
-    ie 40 hr difference => 1 day
-        Args:
-            timestamp (datetime): original tim
-        Returns:
-            str: "1 minute"; "20 minutes"; "3 hours"; "0 seconds"
-    """
-    # normalize just forces integer values for time-units
-    now = datetime.datetime.utcnow()
-    delta = du.relativedelta(now , timestamp).normalized()
-    attrs = ['years', 'months', 'days', 'hours', 'minutes', 'seconds']
-    ts = '{} {} ago'
-    for a in attrs:
-        num = getattr(delta, a)
-        if num:
-            ts = ts.format(num, a if num > 1 else a[:-1]) # a = minutes, a[-1] = minute
-            break
-    else: # no break was encountered in for loop
-        ts = ts.format(0, 'seconds')
-    return ts
-
-def _parse_threads(threads):
-    """ reads the body text for each post, applies styling """
-    ts = list()
-    reflist = list()
-    for thread in threads:
-        t = list()
-        for post in thread:
-            p = dict(post.items())
-            p['body'], addlist  = _parse_post(p['body'])
-            p['h_time'] = _rel_timestamp(p['timestamp'])
-            if addlist:
-                reflist.append((p['id'], addlist))
-            t.append(p)
-        ts.append(t)
-    if reflist:
-        db.create_backrefs_for_thread(reflist)
-    return ts 
 
 @app.route('/<board>/<thread>/', methods=['GET'])
 def thread(board, thread):
@@ -277,8 +185,7 @@ def thread(board, thread):
         return general_error('Specified thread does not exist')
     threads = [db.fetch_thread(thread)] # turned into a list, because the template operates on lists of threads
     board = db.fetch_board_data(board)
-    threads = _parse_threads(threads)
-    return render_template('page.html', threads=threads, board=board, isindex=False)
+    return render_template('page.html', threads=threads, board=board, isindex=False, counts=None)
 
 
 @app.route('/', methods=['GET'])
@@ -299,8 +206,8 @@ def index(board):
     threads = db.fetch_page(board, page)
 
     board = db.fetch_board_data(board)
-    threads = _parse_threads(threads)
-    return render_template('page.html', threads=threads, board=board, isindex=True)
+    counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
+    return render_template('page.html', threads=threads, board=board, isindex=True, counts=counts)
 
 def general_error(error):
     return render_template('error.html', error_message=error)

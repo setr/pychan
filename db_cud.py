@@ -30,6 +30,7 @@ boards = db.boards
 backrefs = db.backrefs
 threads = db.threads
 posts = db.posts
+files = db.files
 mods = db.mods
 banlist = db.banlist
 @event.listens_for(Engine, "connect")
@@ -50,7 +51,7 @@ def transaction(conn):
     else:
         trans.commit()
 
-def create_post(conn, thread, filename, body, password, name='', email='', subject='',  sage=False):
+def create_post(conn, thread, filedatas, body, parsed, password, name='', email='', subject='',  sage=False):
     """ Submits a new post, without value validation
     However, it does check if the post should be forced-sage
         Either due to exceeding thread post limit
@@ -67,17 +68,19 @@ def create_post(conn, thread, filename, body, password, name='', email='', subje
         Returns:
             int: post_id
     """
-
+    postdata = {
+        'thread_id':thread,
+        'name':name,
+        'email':email,
+        'subject':subject,
+        'body':body,
+        'parsed':parsed,
+        'password':password,
+        'sage':sage}
+    postquery = posts.insert()
+    filesquery = files.insert()
 
     password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    query = posts.insert().values(thread_id=thread,
-                                    name=name,
-                                    email=email,
-                                    subject=subject,
-                                    filename=filename,
-                                    body=body,
-                                    password=password,
-                                    sage=sage)
     postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == thread)
     talive =  select([threads.c.alive]).where(threads.c.id == thread)
 
@@ -85,11 +88,15 @@ def create_post(conn, thread, filename, body, password, name='', email='', subje
         count = conn.execute(postcount).fetchone()[0]
         isalive = conn.execute(talive).fetchone()[0]
 
-        sage = (count > cfg.thread_max_posts) or (not isalive)
-        if sage: # force sage
-            query.values(sage=sage)
+        fsage = (count > cfg.thread_max_posts) or (not isalive)
+        if fsage: #forced saged
+            postdata['sage'] = fsage
 
-        post_id = conn.execute(query).inserted_primary_key[0]
+        post_id = conn.execute(postquery, postdata).inserted_primary_key[0]
+        if filedatas[0]: # list of empty dictionary
+            for f in filedatas:
+                f['post_id'] = post_id
+            conn.execute(filesquery, filedatas)
     return post_id
 
 def cleanup_threads(boardname, conn=None):
@@ -143,13 +150,16 @@ def mark_thread_dead(conn, threadid):
         conn.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-def create_thread(conn, boardname, filename, body, password, name, email, subject):
+def create_thread(conn, boardname, filedatas, body, parsed, password, name, email, subject):
     """ Submits a new thread, without value checking. 
         Args:
-            board (int): board name
+            boardname (str): name of the board
             name (str): poster's name
             email (str): 
-            filename (str): filename, on disk (path is implied by config'd dir)
+            filedatas(list(dict)): list of file data
+                filename (str): name of file on disk (path implied by config'd dir) with filetype
+                filetype (str): pdf, jpeg, etc
+                spoilered (bool): is it spoilered?
             post (str): unparsed body text
             password (str): plaintext password for post; hashed with bcrypt before storing.
         Returns:
@@ -170,8 +180,8 @@ def create_thread(conn, boardname, filename, body, password, name, email, subjec
                      alive=true,
                      sticky=true)).inserted_primary_key[0]
         postid = create_post(conn, 
-                    threadid, 
-                    filename, body, 
+                    threadid, filedatas, 
+                    body, parsed,
                     password, name, 
                     email, subject)
         conn.execute(threads.update().\
@@ -204,9 +214,6 @@ def create_backrefs(conn, brefs):
     data = [{ "head": head,
                 "tail": tail}
                 for head in heads]
-    print('\n\n\n\n')
-    print(query, data)
-    print('\n\n\n\n')
     with transaction(conn):
         conn.execute(query, data)
 
@@ -220,6 +227,12 @@ def create_backrefs_for_thread(conn, backreflist):
                         "tail": tail}
                         for head in heads]
             conn.execute(query, data)
+
+def update_post_parsed(conn, parsed, postid):
+    with transaction(conn):
+        query = posts.update().where(posts.c.id == postid).values(parsed=parsed)
+        conn.execute(query)
+    
 
 def delete_thread(conn, threadid):
     """ wipe out a whole thread """
