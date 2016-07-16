@@ -1,6 +1,25 @@
 # pychan
 simple static-chan using python3 and sqlite
 
+Eventually it should feature:
+
+* Image/Webm/PDF support
+* Multi-image posting, per config option
+* Inline expansion, Image Hover
+* Standard chan things (anonymous posting, tripcodes, board-falloff, etc)
+* Board-Specific Configuration
+* basic CLI/Web-based administration 
+* Support for Master/Slave DB configuration
+* Sphinx-Generated Documentation
+* Meguca-Compatible CSS
+* Simple sideline script for installing alongside meguca
+* Most importantly, a generally simple (or simplified) install and management process
+* and of course, the codebase needs to be easy enough to build on, though its getting kind of messy already.
+
+All Web handling is done through Flask/Werkzeug, and uses SQLAlchemy(core) for general SQL-DB independence. Though the most likely usecase **should** be SQLite. A pretty standard python web setup. Basic configs *will* be supplied for an Nginx webserver hosting this + meguca alongside each other.
+
+Otherwise, at least for now, the only dependencies are python3, sqlite and any modules requirements.txt file.
+
 ```
 virtualenv -p python3 testchan
 source testchan/bin/activate.sh
@@ -32,6 +51,8 @@ then go to localhost:5000
 - [ ] Hide threads (JS)
 - [ ] Reverse Image search links
 - [ ] Delete Post option (with auto-gen'd pass check)
+       - Should probably add the ability to set your own pass, if you refuse allow cookies
+       - But then you'll have to set the pass on every post you write, and enter it on delete, since obviously I can no longer store the password anywhere to autofill it for you. Dunno if anyone will ever use that functionality.
 - [ ] Nested inline reply-posts 
 - [ ] Hover reply posts
 
@@ -48,7 +69,11 @@ then go to localhost:5000
 - [x] Filename on server => hash.filetype
 - [ ] Fail on duplicate file upload
 - [ ] Generate and link to thumbnails
+       - Need to look into this. Might be complex for getting them out of webms
+       - PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
 - [ ] Full image on hover (JS)
+       - Shouldn't apply to webms (it's annoying)
+       - Shouldn't apply to PDFs
 - [ ] Inline expansion (JS)
        - [ ] Image Inlined
        - [ ] Webm Inlined
@@ -56,8 +81,10 @@ then go to localhost:5000
 - [ ] Spoiler
 
 ### BODY TEXT
-- [ ] Either move styling injection to client-side (JS)
+- [x] Either move styling injection to client-side (JS)
        -  Or save the parsed body-text to the db (PYTHON)
+       -  Moved it to server side, storing both parsed and original text. Parses once on create, and if that thread future-referenced (replied to a post that does not yet exist), it reparses the post when that thread does exist.
+       -  Can also probably add a cli function to reparse all posts, if you change up the regex or something.
 - [ ] \>>0123021 (you) (JS)
        - [ ] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
             - It turns out session objects are read-only client-side, which is sufficient
@@ -90,8 +117,8 @@ then go to localhost:5000
 ### MAYBE
 - [ ] Converter script from meguca-css to ours
 - [ ] Add multi-image support (this seems like it'll be annoying to add) (SQL/PYTHON)
-       - Would have to decouple post/file, and options, in db
-       - and change a number of queries/code that assumes single-file-per-post
+       - I believe most of the support for this is now complete, with everything now assuming theres a list of files
+       - However, I have no real idea how to add multi-image support on the frontend side, without declaring #id1 #id2 #id3 boxes, and then looking through all of them. Which is do-able, but seems pretty stupid. Ideally, it should just reach flask as a list of files to operate on. 
 - [ ] Floating reply box (JS)
 - [ ] Thread Watcher (JS/AJAX)
 - [ ] Report
