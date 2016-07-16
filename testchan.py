@@ -54,8 +54,9 @@ def assign_session_params():
         session['lastclear'] = now
     delta = now - session['lastclear']
     if delta > datetime.timedelta(days=2): 
+        session['lastclear'] = now
         for i, pid in enumerate(session['myposts']):
-            if _is_post(pid):
+            if not _is_post(pid):
                 del session['myposts'][i] # clears out the posts cookies 
     return None
 
@@ -120,7 +121,7 @@ def _parse_post(post):
     """
     # we need to parse out the pids
     # then form the html for it
-    f_ref=   re.compile('&gt;&gt;(\d+)(\s)') # >>123123
+    f_ref=   re.compile('&gt;&gt;(\d+)(\s)?') # >>123123
     f_spoil= re.compile('&gt;&lt;(.*)&gt;&lt;', re.DOTALL) # >< SPOILERED >< 
     f_imply= re.compile('^&gt;.+', re.MULTILINE) # >implying
     backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{you}{space}'
@@ -131,10 +132,12 @@ def _parse_post(post):
     addrefs = list()
     def r_ref(match): 
         pid = int(match.group(1))
-        space = match.group(2) # preserves following whitespace; particularly \n
+        # preserves following whitespace; particularly \n
+        space = match.group(2) if match.group(2) else ""
         tid = db._fetch_thread_of_post(pid)
+        addrefs.append(pid) # we still want to create the backref, even if the thread doesn't exist
+                            # so you can do future-referencing. Just don't link it yet.
         if tid:
-            addrefs.append(pid)
             you = " (You) " if pid in mypids else ""
             return backref.format(tid=tid, pid=pid, space=space, you=you)
         else:
@@ -181,20 +184,12 @@ def _upload(board, threadid=None):
         return a, b
 
     # read file and form data
-    print("starting upload")
     image = request.files['image']
-    print(type(image))
-    print("got image")
     subject = request.form.get('title', default='', type=str).strip()  
-    print(subject)
     email =   request.form.get('email', default='', type=str).strip() 
-    print(email)
     name =    request.form.get('name' , default='', type=str).strip() 
-    print(name)
     post =    request.form.get('body' , default='', type=str).strip() 
-    print(post)
     sage =    request.form.get('sage' , default='', type=str).strip() 
-    print(sage)
 
     if 'password' not in session: # I believe this will occur if cookies are being blocked
         assign_pass()
@@ -219,19 +214,20 @@ def _upload(board, threadid=None):
             image.mainpath = imgpath
             image.thumbpath = thumbpath
     # so it's a valid upload in all regards
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
-    image.save(filepath)
-    print("BEFORE")
-    print("board", board)
-    print("thread", threadid)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], image.filename)
+        image.save(filepath)
     if threadid: 
         pid = db.create_post(threadid, image.filename, post, password, name, email, subject, sage)
-        session['myposts'].append(pid) # we don't care about owning threads
     else:
         threadid, pid = db.create_thread(board, image.filename, post, password, name, email, subject)
-    print("AFTER")
-    print("board", board)
-    print("thread", threadid)
+    # TODO: This is stupid as fuck
+    # the problem is that when we read a thread, we do it _before_ we create the backrefs
+    parsed_body, reflist = _parse_post(post) #  we should probaby save the parsed body instead of unparsed
+    if reflist:
+        db.create_backrefs((pid,reflist))
+    session['myposts'].append(pid)
+    session.modified = True # necessary to actually save the session change
+    # END TODO
     return redirect(url_for('thread', board=board, thread=threadid))
 
 def _rel_timestamp(timestamp):
@@ -257,7 +253,7 @@ def _rel_timestamp(timestamp):
         ts = ts.format(0, 'seconds')
     return ts
 
-def parse_threads(threads):
+def _parse_threads(threads):
     """ reads the body text for each post, applies styling """
     ts = list()
     reflist = list()
@@ -281,8 +277,8 @@ def thread(board, thread):
         return general_error('Specified thread does not exist')
     threads = [db.fetch_thread(thread)] # turned into a list, because the template operates on lists of threads
     board = db.fetch_board_data(board)
-    threads = parse_threads(threads)
-    return render_template('page.html', threads=threads, board=board)
+    threads = _parse_threads(threads)
+    return render_template('page.html', threads=threads, board=board, isindex=False)
 
 
 @app.route('/', methods=['GET'])
@@ -298,19 +294,18 @@ def index(board):
         page = int(page) # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
     except TypeError:    # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
         page = 0
-
+    if page > cfg.index_max_pages:
+        return e404(None)
     threads = db.fetch_page(board, page)
-    #if not threads:
-    #    return e404()
 
     board = db.fetch_board_data(board)
-    threads = parse_threads(threads)
-    return render_template('page.html', threads=threads, board=board)
+    threads = _parse_threads(threads)
+    return render_template('page.html', threads=threads, board=board, isindex=True)
 
 def general_error(error):
     return render_template('error.html', error_message=error)
 
 @app.errorhandler(404)
-def e404():
+def e404(e):
     return render_template('404.html'), 404
 

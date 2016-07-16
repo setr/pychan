@@ -15,13 +15,14 @@ then go to localhost:5000
 
 ##TODO
 ### GENERAL FIXES
-- [ ] Thread/Index distinction isn't complete
+- [x] Thread/Index distinction isn't complete
        - May want to use template inheritance
        - Thread currently has [ 1 2 3 4 5 ] page numbers, where it should be options like [ expand all images ]
-- [ ] Index has [ New Reply ] buttons on each thread, that spawn a new thread on writing
+       - I believe this is mostly complete now, but using an annoying number of if-else clauses. not sustainable.
+- [x] Index has [ New Reply ] buttons on each thread, that spawn a new thread on writing
        - Either this needs to reply to the thread, and then redirect to it
-       - Or it needs to not exist, and only a [ New Thread ] button 
-- [ ] Index needs to 404 if you try to go to a page that cannot exist (exceeds index_max_pages)
+       - Or it needs to not exist, and only a [ New Thread ] button **Currently This**
+- [x] Index needs to 404 if you try to go to a page that cannot exist (exceeds index_max_pages)
        - An empty page if pagenum is valid, but there simply aren't that many threads in existence (which it currently does)
 - [ ] [ New Thread ] runs on [ New Reply ] JS. Pretty sure I don't like this.
 - [ ] Deleting a post currently does not delete associated file(s), if any
@@ -41,7 +42,7 @@ then go to localhost:5000
 - [ ] Actual POSTing of reply data (JINJA/PYTHON)
        - [x] body + file can POST 
        - [ ] additional fields can POST (name, sage, spoiler, etc)
-- [ ] New Thread vs New Reply distinction (JINJA)
+- [x] New Thread vs New Reply distinction (JINJA)
 
 ### IMAGES
 - [x] Filename on server => hash.filetype
@@ -59,6 +60,8 @@ then go to localhost:5000
        -  Or save the parsed body-text to the db (PYTHON)
 - [ ] \>>0123021 (you) (JS)
        - [ ] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
+            - It turns out session objects are read-only client-side, which is sufficient
+            - Currently this is implemented, but from python's parsing
        - [ ] Detect ownership and inject ::after
 
 ### CONVENIENCE
@@ -67,6 +70,7 @@ then go to localhost:5000
 ### MODS
 - [x] Login check on specific page
 - [x] Store login success in session cookie
+- [ ] An actual login page
 - [ ] Administration page (clear bans, clear cache, etc)
 - [ ] Banlist page
 - [ ] Database access functions

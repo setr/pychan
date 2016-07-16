@@ -197,6 +197,19 @@ def create_board(conn, title, subtitle, slogan, active=True):
         boardid = conn.execute(query).inserted_primary_key[0]
     return boardid
 
+def create_backrefs(conn, brefs):
+    query = backrefs.insert().prefix_with("OR REPLACE")
+    tail = brefs[0]
+    heads = brefs[1]
+    data = [{ "head": head,
+                "tail": tail}
+                for head in heads]
+    print('\n\n\n\n')
+    print(query, data)
+    print('\n\n\n\n')
+    with transaction(conn):
+        conn.execute(query, data)
+
 def create_backrefs_for_thread(conn, backreflist):
     with transaction(conn):
         query = backrefs.insert().prefix_with("OR REPLACE")

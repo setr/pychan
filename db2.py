@@ -89,7 +89,8 @@ def delete_post(postid, password, ismod=False, engine=None):
 @with_master
 def create_post(thread, filename, body, password, name='', email='', subject='', sage=False, engine=None):
     with connection(engine) as conn:
-        db_cud.create_post(conn, thread, filename, body, password, name, email, subject, sage)
+        pid = db_cud.create_post(conn, thread, filename, body, password, name, email, subject, sage)
+    return pid
 
 
 @with_slave
@@ -185,7 +186,6 @@ def fetch_page(board, pgnum=0, engine=None):
         pagedata.append(done)
     return pagedata 
 
-#TODO: MOVE LOGIC TO db_cud
 @with_master
 def create_backrefs_for_thread(backreflist, engine=None):
     """ Adds backrefs for each post, for an entire thread
@@ -195,6 +195,16 @@ def create_backrefs_for_thread(backreflist, engine=None):
     """
     with connection(engine) as conn:
         db_cud.create_backrefs_for_thread(conn, backreflist)
+@with_master
+def create_backrefs(backrefs, engine=None):
+    """
+        Args:
+            backrefs (tuple): (
+                1. postid referring to others,
+                2. [ list of postid being referred to ]
+    """
+    with connection(engine) as conn:
+        db_cud.create_backrefs(conn, backrefs)
 
 @with_slave
 def fetch_backrefs(postid, engine):
@@ -219,7 +229,6 @@ def mark_thread_autosage(threadid, engine=None):
     engine.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-# TODO: db_cud.create_thread
 @with_master
 def create_thread(boardname, filename, body, password, name='', email='', subject='', engine=None):
     """ Submits a new thread, without value checking. 

@@ -11,7 +11,7 @@
 # to handle it yourself.
 
 class Config():
-    debug = True
+    debug = False 
     # Master/Slave URIs, if replicating the DB.
     # Master should handle writes, and any reads immediately following a write
     # Only pure reads should use the slave.
