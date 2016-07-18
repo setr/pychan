@@ -13,8 +13,6 @@ $(document).ready(function () {
 function createForm(article, replyform){
     // actual form
     var form = $("<form/>",
-                {action: '/upload'});
-    var form = $("<form/>",
                    {method: 'post',
                     enctype:'multipart/form-data',
                     action: './upload'});
@@ -80,46 +78,50 @@ function createarticle(replyform){
     article.append( form )
     return article; }
 
-$(".act.posting").each(function () {
+// Inject reply form on click
+$(".act.posting.thread").each(function () {
     // create form on clicking [Reply]
     $(this).click(function() {
         $(this).before(createarticle( $(this) ));
+        $('html, body').scrollTop( $(document).height() ); // scroll to bottom, because the reply form gets hidden
+        });
     });
+
+// image inline expandsion
+// the srcs need to refere to url_for('static').. or better yet
+// cfg.static + cfg.thumb | cfg.imgs
+function create_thumb(basename){
+    var img = $("<img>", {
+                    "src": "/static/src/thumb/" + basename + '.jpg',
+                    "class": "thumb",
+                    "style": "max-width: 125; max-height: 125px"})
+    return img
+    }
+function create_expanded(mainpath){
+    var img = $("<img>", {
+                    "src": mainpath,
+                    "class": "expanded"})
+    return img
+    }
+$(".image").each(function () {
+    $(this).click(function(evt) {
+        evt.preventDefault();
+        basename = $(this).attr('id');
+        mainpath = $(this).attr('href');
+        thumb = $(this).find(".thumb");
+        expanded = $(this).find(".expanded");
+        img = "";
+        if (thumb.length) {
+            thumb.remove();
+            img = create_expanded(mainpath);
+        } else {
+            expanded.remove();
+            img = create_thumb(basename);
+        }
+        $(this).append(img)
+        });
+    });
+        
+
 });
 
-//<article>
-//    <header>
-//        <a class="nope">
-//            <b>
-//            Anonymous
-//            </b>
-//        </a>
-//        <time>
-//        </time>
-//    </header>
-//    <blockquote>
-//        <p>
-//        </p>
-//        <p>
-//        </p>
-//        <textarea name="body" id="trans" rows="1" class="themed" autocomplete="false" style="width: 202.344px;" maxlength="2000">
-//        </textarea>
-//    </blockquote>
-//    <small>
-//    </small>
-//    <form method="post" enctype="multipart/form-data" target="upload">
-//        <input type="button" value="Cancel" style="display: inline-block;">
-//        <input type="file" id="image" name="image" accept="imager/*;.webm">
-//        <input type="button" id="toggle" style="background-image: url(&quot;https://meguca.org/static/css/ui/pane.png&quot;);">
-//        <strong>
-//        </strong>
-//    </form>
-//</article>
-//            
-//
-//$(".act.posting").each(function () { 
-//    $(this).click(function() {
-//        alert( "Handler for .click() called." );
-//    });
-//});
-});

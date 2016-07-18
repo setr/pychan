@@ -18,6 +18,11 @@ Eventually it should feature:
 
 All Web handling is done through Flask/Werkzeug, and uses SQLAlchemy(core) for general SQL-DB independence. Though the most likely usecase **should** be SQLite. A pretty standard python web setup. Basic configs *will* be supplied for an Nginx webserver hosting this + meguca alongside each other.
 
+Images are handled using ImageMagick. PDF-Thumbnailing is handled through Ghostscript (currently interfaced through imagemagick). Webms do not get thumbnailed, at least for now. If they are to be, it'll likely be through ffmpeg.
+
+See http://docs.wand-py.org/en/0.4.3/guide/install.html for imagemagick installation.
+
+
 Otherwise, at least for now, the only dependencies are python3, sqlite and any modules requirements.txt file.
 
 ```

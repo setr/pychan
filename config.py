@@ -26,6 +26,12 @@ class Config():
     index_max_pages        = 10   # max number of pages the board-index will support
     thread_max_posts       = 500  # threads with more than n posts can no longer be bumped
     post_max_length        = 2000 # 4chan max post length, on /v/ at least
+
+    # thumbnail settings
+    op_thumb_max_height = 250 
+    op_thumb_max_width = 250
+    post_thumb_max_height = 150
+    post_thumb_max_width = 150
     
 
 cfg = Config() # don't touch this you fuck

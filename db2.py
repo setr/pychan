@@ -451,7 +451,7 @@ def fetch_all_boards(engine=None):
     return board_list
 
 @with_slave
-def _is_post(postid, engine=None):
+def is_post(postid, engine=None):
     q = select([posts.c.id]).where(posts.c.id == bindparam('postid'))
     pid = engine.execute(q, postid=postid).fetchone()
     return True if pid else None

@@ -7,7 +7,7 @@
 ##   is fucking unreadable as it is
 ## JINJA2 LINE MODE is turned on, using # for statements, and ## for comments.
 
-{% macro _header( threadid, post, isop=false )%} 
+{% macro _header(boardname, threadid, post, isop=false )%} 
     {% set tid = threadid %}
     {% set pid = post.id %}
     <header>
@@ -19,25 +19,25 @@
         <b class="name"> {{ post.name }} </b>
         <time title="{{post.timestamp}}"> {{post.h_time}}</time>
         <nav>
-            <a href="{{tid}}#{{pid}}" class="history">No.</a> <!-- tid == pid for threads -->
-            <a href="{{tid}}#{{pid}}" class="quote">{{pid}}</a>
+            <a href="/{{boardname}}/{{tid}}#{{pid}}" class="history">No.</a> <!-- tid == pid for threads -->
+            <a href="/{{boardname}}/{{tid}}#{{pid}}" class="quote">{{pid}}</a>
         </nav>
         {% if isop %}
         <span class="act expansionLinks">
-            <a href="{{tid}}" class="history">Expand</a>
+            <a href="/{{boardname}}/{{tid}}" class="history">Expand</a>
             ## I don't think I care to actually implement this
-            ## <a href="{{tid}}?last=100" class="history">Last 100</a>
+            ## <a href="/{{boardname}}/{{tid}}?last=100" class="history">Last 100</a>
         </span>
         {% endif %}
     </header>
 {%- endmacro %}
 
-{% macro _replies( replylist ) %}
+{% macro _replies(boardname, replylist ) %}
     <small>
         {% for r in replylist %}
             {% set rid = r.tail %}
             {% set tid = r.thread_id %}
-            <a href="{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
+            <a href="/{{boardname}}/{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
         {% endfor %}
     </small>
 {%- endmacro %}
@@ -45,61 +45,67 @@
 {% macro _figure(filelist, isop) %}
     ## based on meguca sizing
     # if isop:                      
-        {% set width = "250px" %}
-        {% set height= "250px" %}
+        {% set width = cfg.op_thumb_max_width %}
+        {% set height= cfg.op_thumb_max_height %}
     # else:
-        {% set width = "125px" %}
-        {% set height= "125px" %}
+        {% set width = cfg.post_thumb_max_width %}
+        {% set height= cfg.post_thumb_max_height %}
     # endif 
 
     # for f in filelist:
         {% set tf = '' %}
         # if f.spoilered:
             {% set tf = 'spoilered.jpg' %}
-        # elif f.filetype == 'pdf':
-            {% set tf = 'pdf.jpg' %}
         # else:
-            {% set tf = f.filename %} 
+            {% set tf = f.filename + '.jpg' %} 
         # endif
-        {% set filename = f.filename %}
-        # if not tf:
-            {% set tf= '' %}
-            {% set filename= '' %}
+        
+        # if f.filetype == 'webm':
+            {% set class = 'video' %}
+        # elif f.filetype == 'pdf':
+            {% set class = 'pdf' %}
+        # else:
+            {% set class = 'image' %}
         # endif
-
 
         {% set thumbf = "src/thumb/" + tf %} ## this should be changed to cfg.option
-        {% set mainf = "src/imgs/" + filename %} ## this should be changed to cfg.option
-        {% set link = url_for('static', filename= mainf) %}
+        {% set mainf = "src/imgs/" + f.filename + '.' + f.filetype %} ## this should be changed to cfg.option
+        {% set linkt = url_for('static', filename= thumbf) %}
+        {% set linkf = url_for('static', filename= mainf) %}
         <figure>
             <figcaption>
             <!-- imgsearch urls -->
-            </figcaption> ## we still need to add proper thumbnails
-            <a target="_blank" rel="nofollow" href="{{ link }}">
-                <!-- this should be a thumbnail, eventually -->
-                <img src="{{ link }}" style="max-width: {{width}}; max-height: {{height}}">
+            </figcaption> 
+            <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{class}}" href="{{ linkf }}">
+                # if f.filetype == 'webm':
+                <video width={{width}} height={{height}} controls> 
+                    <source src={{mainf}} type="video/webm">
+                    >apple
+                </video>
+                # endif
+                ## pdfs will also have an image thumbnail but won't inline expand (due to class='pdf')
+                <img src="{{linkt}}" class="thumb" style="max-width:{{width}}; max-height:{{height}}">
             </a>
         </figure>
     # endfor
 {%- endmacro %}
 
 
-{% macro merge(threadid, post, isop) %}
+{% macro merge(boardname, threadid, post, isop, counts='') %}
     {% set tid = threadid %}
     {% set pid = post.id %} 
     # if isop:
-        {{ _figure( post.files, isop=true) }}  ## meguca op max h/w is 250x250
-        {{ _header( threadid, post, isop=true )}}
+        {{ _figure(post.files, isop=true) }}  ## meguca op max h/w is 250x250
+        {{ _header(boardname, threadid, post, isop=true )}}
     # else:
-        {{ _header( threadid, post, isop=false )}}
-        {{ _figure( post.files, isop=false ) }} ## meguca op max h/w is 125x125
+        {{ _header(boardname, threadid, post, isop=false )}}
+        {{ _figure(post.files, isop=false ) }} ## meguca op max h/w is 125x125
     # endif
     <blockquote>
         {{ post.parsed | safe}}
     </blockquote>
-    {{ _replies( post.tails ) }}
-    # if isop:
-        ## TODO: obviously, this should be dynamic
-        <span class="omit"> 600 replies and 35 images omitted </span>
+    {{ _replies(boardname, post.tails ) }}
+    # if counts:
+        <span class="omit"> {{counts[0]}} replies and {{counts[1]}} images omitted </span>
     # endif
 {%- endmacro %}

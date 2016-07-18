@@ -9,43 +9,28 @@
         {% set tit, stit = board.title, board.subtitle %}
            <h1> /{{tit}}/ - {{stit}} </h1>
            <!-- meguca doesn't use slogans? -->
-            # if isindex:
-                <nav class="pagination act">
-                # for i in range(5):
-                <a href="?page={{i}}" class="history"> {{ i }}</a>
-                # endfor
-                </nav>
-            # else:
-                <span class="act"><a href="#bottom">Bottom</a></span>
-                <span class="act"><a href="" id="expandImages">Expand Images</a></span>
-            # endif
+            <nav class="pagination act">
+            # for i in range(5):
+            <a href="?page={{i}}" class="history">{{ i }}</a>
+            # endfor
+            </nav>
         <hr>
-        # if isindex:
-            <aside class="act posting"> 
-                <a>New thread</a>
-            </aside>
-            <hr>
-        # endif
+        <aside class="act posting"> 
+            <a>New thread</a>
+        </aside>
+        <hr>
         {% for thread in threads %}
             {% set op = thread[0] %}
             {% set tid = op.thread_id %}
             <section id={{ tid }}>
-            {{ posts.merge(tid, op, isop=True) }}
+            {{ posts.merge(tit, tid, op, isop=True, counts=counts[loop.index-1]) }}
             <hr> ## END OF ORIGINAL POST
             
             {% for post in thread[1:] %}
                 <article id="{{ post.id }}">
-                {{ posts.merge(tid, post, isop=False) }}
+                {{ posts.merge(tit, tid, post, isop=False) }}
                 </article>
             {% endfor %}
-            
-            # if not isindex:
-            <aside class="act posting" style="display: table"> ## Reply form that opens on click. Handled by client.js
-                <a>Reply</a>
-            </aside>
-            # endif
-
-            <hr>
             <hr>
             </section> ## END OF THREAD
         {% endfor %} 
