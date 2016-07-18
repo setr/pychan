@@ -218,7 +218,6 @@ def thread(board, thread):
     board_data = db.fetch_board_data(board)
     return render_template('thread.html', thread=thread_data, board=board_data)
 
-
 @app.route('/', methods=['GET'])
 def root():
     return redirect(url_for('index', board='v'))

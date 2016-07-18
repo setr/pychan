@@ -20,10 +20,20 @@ All Web handling is done through Flask/Werkzeug, and uses SQLAlchemy(core) for g
 
 Images are handled using ImageMagick. PDF-Thumbnailing is handled through Ghostscript (currently interfaced through imagemagick). Webms do not get thumbnailed, at least for now. If they are to be, it'll likely be through ffmpeg.
 
-See http://docs.wand-py.org/en/0.4.3/guide/install.html for imagemagick installation.
+Currently there are no optional requirements. You **must** have imagemagick compiled with support for JPG, PNG, GIF, as well as ghostscript for PDF (and imagemagick needs to know where ghostscript lives.) I believe for most os's, this is the standard install of imagemagick.
 
+I'm also making subprocess module calls (without shell=True) to run imagemagick. I'm not sure what python does with the strings outside of shell escaping, but I think it's safe to assume sh is a dependency.
 
-Otherwise, at least for now, the only dependencies are python3, sqlite and any modules requirements.txt file.
+Otherwise, at least for now, the only dependencies are python3, sqlite and any modules in the requirements.txt file.
+
+So in total,
+
+* ImageMagick
+* Ghostscript
+* Python3
+* Sqlite3 (or any other SQL-DB supported by SqlAlchemy)
+* FFMPEG (probably; not yet though)
+
 
 ```
 virtualenv -p python3 testchan
@@ -80,14 +90,14 @@ then go to localhost:5000
        - Shouldn't apply to webms (it's annoying)
        - Shouldn't apply to PDFs
 - [ ] Inline expansion (JS)
-       - [ ] Image Inlined
+       - [x] Image Inlined
        - [ ] Webm Inlined
-       - [ ] PDF should not inline. Just target="_blank"
+       - [x] PDF should not inline. Just target="_blank"
+- [ ] Thumbnails for webms
 - [ ] Spoiler
 
 ### BODY TEXT
-- [x] Either move styling injection to client-side (JS)
-       -  Or save the parsed body-text to the db (PYTHON)
+- [x] Either move styling injection to client-side (JS) or save the parsed body-text to the db (PYTHON)
        -  Moved it to server side, storing both parsed and original text. Parses once on create, and if that thread future-referenced (replied to a post that does not yet exist), it reparses the post when that thread does exist.
        -  Can also probably add a cli function to reparse all posts, if you change up the regex or something.
 - [ ] \>>0123021 (you) (JS)
@@ -109,21 +119,33 @@ then go to localhost:5000
 - [ ] Limited Bans (ie 1 day, or on one board)
 - [ ] Mod-options for index page
 
-### CODEBASE
+### CONFIGS
 - [x] A proper config file (PYTHON)
        - completed in the form of a python class. May use configparser to have an ascii-based config, but probably not worth the effort
+- [ ] Need board-specific configs (currently its global to the whole site)
+    - Probably something like a nested dictionary
+    - globals are at the top, and then you set specific ones, with the L1 dict being the boardname (ie 'v')
+- [ ] Missing options I can think of now
+    - [ ] Media support On/Off
+- [ ] C
+
+### CODEBASE
 - [ ] Move flask routing and helper functions into seperate files
 - [x] DB needs to be split into an entry point file and helper functions
        - with the helper functions always consuming engine transaction objects
        - and the entry points always spawning them
 - [ ] Give files proper names (ie not testchan)
 - [ ] Write some actual fucking unit tests
+- [ ] _upload is getting way too complex; break it up and simplify conditional-routing
+
+### DOCS
+- [ ] Most of the functions have Napolean-Sphinx compatatible docstrings, but we still need to start generating them
 
 ### MAYBE
 - [ ] Converter script from meguca-css to ours
 - [ ] Add multi-image support (this seems like it'll be annoying to add) (SQL/PYTHON)
        - I believe most of the support for this is now complete, with everything now assuming theres a list of files
-       - However, I have no real idea how to add multi-image support on the frontend side, without declaring #id1 #id2 #id3 boxes, and then looking through all of them. Which is do-able, but seems pretty stupid. Ideally, it should just reach flask as a list of files to operate on. 
+       - However, I have no real idea how to add multi-image support on the frontend side, without declaring #id1 #id2 #id3 boxes, and then looking through all of them. Which is do-able, but seems pretty stupid. Ideally, it should just reach flask as a generic list of files to operate on. 
 - [ ] Floating reply box (JS)
 - [ ] Thread Watcher (JS/AJAX)
 - [ ] Report
