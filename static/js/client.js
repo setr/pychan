@@ -90,21 +90,31 @@ $(".act.posting.thread").each(function () {
 // image inline expandsion
 // the srcs need to refere to url_for('static').. or better yet
 // cfg.static + cfg.thumb | cfg.imgs
-function create_thumb(basename){
+function create_thumb(basename, w, h){
     var img = $("<img>", {
                     "src": "/static/src/thumb/" + basename + '.jpg',
-                    "class": "thumb",
-                    "style": "max-width: 125; max-height: 125px"})
-    return img
+                    "class": "thumb"})
+    return img;
     }
-function create_expanded(mainpath){
+function create_expanded_image(mainpath){
     var img = $("<img>", {
                     "src": mainpath,
                     "class": "expanded"})
-    return img
+    return img;
     }
-$(".image").each(function () {
+function create_expanded_video(mainpath){
+    var vid = $("<video>", {
+                    "class": "expanded",
+                    controls: true});
+    source = $("<source>", {
+                "src": mainpath,
+                "type": "video/webm"})
+    vid.append(source)
+    return vid
+}
+$(".image, .video").each(function () {
     $(this).click(function(evt) {
+        // there must be a better way of doing this
         evt.preventDefault();
         basename = $(this).attr('id');
         mainpath = $(this).attr('href');
@@ -112,8 +122,12 @@ $(".image").each(function () {
         expanded = $(this).find(".expanded");
         img = "";
         if (thumb.length) {
-            thumb.remove();
-            img = create_expanded(mainpath);
+            if ($(this).hasClass('image')){
+                thumb.remove();
+                img = create_expanded_image(mainpath);
+            } else if ($(this).hasClass('video')) {
+                thumb.remove();
+                img = create_expanded_video(mainpath); }
         } else {
             expanded.remove();
             img = create_thumb(basename);
@@ -121,7 +135,6 @@ $(".image").each(function () {
         $(this).append(img)
         });
     });
-        
 
 });
 

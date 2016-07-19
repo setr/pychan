@@ -16,7 +16,8 @@ app = Flask(__name__)
 imgpath = 'src/imgs/'
 thumbpath = 'src/thumb/'
 
-ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
+ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
+#ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
 app.config['UPLOAD_FOLDER'] = 'static/' + imgpath
 app.config['THUMB_FOLDER'] = 'static/' + thumbpath
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
@@ -119,6 +120,60 @@ def newthread(board):
 def newpost(board, thread):
     return _upload(board, thread)
 
+def _save_imagemagick(mainpath, ext, thumbpath, w, h):
+    # the > stops small images from being enlarged in imagemagick
+    size = '{w}x{h}>' .format(w=w, h=h) # '>' stops small images from being expanded to fit
+    command = []
+    mainpath = mainpath + '[0]' # [0] gets page0 from the file. First frame of static image = the image.
+    if ext == 'pdf':
+        command = ['convert', mainpath, '-thumbnail', size, '-background', 'white', '-alpha', 'remove', thumbpath]
+    else:
+        command = ['convert', mainpath, '-thumbnail', size, '-format', 'jpg', thumbpath]
+    subprocess.run(command)
+
+def _save_ffmpeg(mainpath, ext, thumbpath, w, h):
+    # don't upscale
+    # take the min scaling factor
+    scale='scale=iw*min(1\\,min({w}/iw\\,{h}/ih)):-1'.format(w=w, h=h)
+    command = ['ffmpeg', '-i', mainpath, '-vframes', '1', '-vf', scale, thumbpath]
+    print(command)
+    subprocess.run(command)
+
+def _save_image(image, ext, mainpath, thumbpath, isop):
+    image.save(mainpath) # first save the full image, unchanged
+
+    h,w = (cfg.op_thumb_max_height, cfg.op_thumb_max_width) if isop \
+     else (cfg.post_thumb_max_height, cfg.post_thumb_max_width)
+
+    if ext in cfg.imagemagick_formats: 
+        _save_imagemagick(mainpath, ext, thumbpath, w, h)
+    elif ext in cfg.ffmpeg_formats:
+        _save_ffmpeg(mainpath, ext, thumbpath, w, h)
+    else:
+        print("WE SHOULD NEVER HAVE REACHED THIS")
+
+def handle_image(image, isop):
+    err = None
+    f, e = os.path.splitext(image.filename)
+    ext = e[1:] # get rid of the . in the extension
+    allowed = ext in ALLOWED_EXTENSIONS
+    if not allowed:
+        err = 'File not allowed'
+    basename = hashfile(image) # returns hex
+    basename = str(int(basename[:16], 16)) # more or less like 4chan
+    newname = "%s.%s" % (basename, ext) 
+    # files is whats actually being passed to the db
+    mainpath  = os.path.join(app.config['UPLOAD_FOLDER'], newname)
+    thumbpath = os.path.join(app.config['THUMB_FOLDER'], '%s.%s' % (basename, 'jpg'))
+
+    if os.path.isfile(mainpath):
+        err = 'File already exists'
+    newbasename = _save_image(image, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+
+    filedict = {
+    'filename'  : basename,
+    'filetype'  : ext}
+    return filedict, err
 #@checktime
 def _upload(board, threadid=None):
     """ handles the entire post upload process, and validation
@@ -143,7 +198,6 @@ def _upload(board, threadid=None):
     sage      = request.form.get('sage' , default= '', type= str).strip()
     spoilered = request.form.get('spoilered', default= False, type= bool)
 
-    files = dict()
     if 'password' not in session: # I believe this will occur if cookies are being blocked
         assign_pass()
     password = session['password']
@@ -156,56 +210,28 @@ def _upload(board, threadid=None):
         return general_error('Spam/Robot detected')
     if threadid and not db._is_thread(threadid):
         return general_error('Specified thread does not exist')
+
+    # and now we start doing real work
+    isop = False if threadid else True
+
+    # in the future, for handling multiple images, this would be looping through all the images
+    files = list()
     if image:
-        filetype, allowed = allowed_file(image.filename)
-        basename = ""
-        newname = ""
-        if not allowed:
-            return general_error('File not allowed')
+        filedict, err= handle_image(image, isop) # returns filedict if we're good, a string-error if not
+        if err:
+            return general_error(err)
         else:
-            basename = hashfile(image) # returns hex
-            basename = str(int(basename[:16], 16)) # more or less like 4chan
-            newname = "%s.%s" % (basename, filetype) 
-            # files is whats actually being passed to the db
-            files['filename'] = basename
-            files['filetype'] = filetype
-            files['spoilered'] = spoilered
-            pprint(files)
-    # so it's a valid upload in all regards
-        mainpath  = os.path.join(app.config['UPLOAD_FOLDER'], newname)
-        thumbpath = os.path.join(app.config['THUMB_FOLDER'], '%s.%s' % (basename, 'jpg'))
+            filedict['spoilered'] = spoilered
+            files.append(filedict)
 
-        # PIL get fucked by certain gifs for reasons I can't figure out
-        # imagemagick-wand transform decides to cut up images into a million fucking parts
-        # for reasons I can't figure out
-        # so because everything is shit, we're using imagemagick directly (CLI)
-        image.save(mainpath) # first save the full image, unchanged
-        if filetype != 'webm': # webms have no thumbnailing
-            size = '{width}x{height}>' # the > stops small images from being enlarged
-            if threadid:
-                size = size.format( width= cfg.post_thumb_max_width,
-                                   height= cfg.post_thumb_max_height)
-            else:
-                size = size.format( width= cfg.op_thumb_max_width,
-                                   height= cfg.op_thumb_max_height)
-            command = []
-            if filetype == 'pdf':
-                pdfpath = mainpath + '[0]' # [0] gets page0 from the file
-                command = ['convert', pdfpath, '-thumbnail', size, '-background', 'white', '-alpha', 'remove', thumbpath]
-            else:
-                if filetype == 'gif':
-                    mainpath = mainpath + '[0]' # gets first frame of gif
-                command = ['convert', mainpath, '-thumbnail', size, '-format', 'jpg', thumbpath]
-        subprocess.run(command)
-
-    parsed_body, reflist = db.parse_post(post) #  we should probaby save the parsed body instead of unparsed
-    if threadid: 
-        pid = db.create_post(threadid, [files], post, parsed_body, password, name, email, subject, sage)
+    parsed_body, reflist = db.parse_post(post)
+    if isop: 
+        threadid, pid = db.create_thread(board, files, post, parsed_body, password, name, email, subject)
     else:
-        threadid, pid = db.create_thread(board, [files], post, parsed_body, password, name, email, subject)
+        pid = db.create_post(threadid, files, post, parsed_body, password, name, email, subject, sage)
     if reflist:
         db.create_backrefs((pid,reflist))
-    db._check_backref_preexistence(pid) # check if this post was future-referenced, and reparse if neccessary
+    db._check_backref_preexistence(pid) # check if this post was future-referenced, and reparse those posts if  neccessary
     session['myposts'].append(pid)
     session.modified = True # necessary to actually save the session change
     return redirect(url_for('thread', board=board, thread=threadid, _anchor=pid))

@@ -47,9 +47,13 @@
     # if isop:                      
         {% set width = cfg.op_thumb_max_width %}
         {% set height= cfg.op_thumb_max_height %}
+        {# set maxwidth = cfg.op_exp_max_width #}
+        {# set maxheight= cfg.op_exp_max_height #}
     # else:
         {% set width = cfg.post_thumb_max_width %}
         {% set height= cfg.post_thumb_max_height %}
+        {# set maxwidth = cfg.post_exp_max_width #}
+        {# set maxheight= cfg.post_exp_max_height #}
     # endif 
 
     # for f in filelist:
@@ -72,17 +76,11 @@
         {% set mainf = "src/imgs/" + f.filename + '.' + f.filetype %} ## this should be changed to cfg.option
         {% set linkt = url_for('static', filename= thumbf) %}
         {% set linkf = url_for('static', filename= mainf) %}
-        <figure>
+        <figure 
             <figcaption>
             <!-- imgsearch urls -->
             </figcaption> 
             <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{class}}" href="{{ linkf }}">
-                # if f.filetype == 'webm':
-                <video width={{width}} height={{height}} controls> 
-                    <source src={{mainf}} type="video/webm">
-                    >apple
-                </video>
-                # endif
                 ## pdfs will also have an image thumbnail but won't inline expand (due to class='pdf')
                 <img src="{{linkt}}" class="thumb" style="max-width:{{width}}; max-height:{{height}}">
             </a>

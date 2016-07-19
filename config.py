@@ -28,10 +28,21 @@ class Config():
     post_max_length        = 2000 # 4chan max post length, on /v/ at least
 
     # thumbnail settings
-    op_thumb_max_height = 250 
-    op_thumb_max_width = 250
-    post_thumb_max_height = 150
-    post_thumb_max_width = 150
+    op_thumb_max_height   = 250
+    op_thumb_max_width    = 250
+    post_thumb_max_height = 125
+    post_thumb_max_width  = 125
+
+    # expanded settings
+    # these settings refuse to actually be applied, so they don't do anything atm
+    op_exp_max_height   = 500
+    op_exp_max_width    = 500
+    post_exp_max_height = 300
+    post_exp_max_width  = 300
+
+    imagemagick_formats = ['jpg', 'png', 'gif', 'jpeg'] # allowed image types; must be supported by imagemagick
+    ffmpeg_formats      = ['webm']                           # allowed video types; must be supported by ffmpeg
     
 
 cfg = Config() # don't touch this you fuck
+
