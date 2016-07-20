@@ -1,13 +1,13 @@
-import db2 as db
+import db_main as db
 from config import cfg
-import datetime
+import gen_helpers as gh
 from flask import Flask, request, render_template
 from flask import url_for, flash, redirect, session
 from flask import send_from_directory, Markup 
 from pprint import pprint
 import random, string
 import os
-import subprocess
+import datetime
 
 import hashlib
 
@@ -25,12 +25,9 @@ app.config['minsec_between_posts'] = 30
 app.jinja_env.line_statement_prefix = '#' # enables jinja2 line mode
 app.jinja_env.line_comment_prefix = '##' # enables jinja2 line mode
 
-database = 'sqlite:///db1.sqlite'
-
-
 app.secret_key = 'Bd\xf2\x14\xbbi\x01Gq\xc6\x87\x10BVc\x9c\xa4\x08\xdbk%\xfa*\xe3' # os.urandom(24)
 
-app.add_template_global(cfg, 'cfg') # makes our config available to all jinja classes
+app.add_template_global(cfg, 'cfg') # makes our config available to all jinja templates 
 #@app.before_first_request
 #def load_tables():
 #    """ collects all the metadata as soon as the app boots up
@@ -42,14 +39,14 @@ def assign_session_params():
     """ Makes sure the user has basic needs satisfied
         password: password to sign off posts with
         myposts: list of pids posted by the user
-        clear-myposts: At max once every 2 days, clear out the posts 
-            assigned to their session if the post no longer exists
+        update-myposts: at min once every two days, replace myposts with a 
+            list of postids that still exist in the db.
     """
     if 'password' not in session:
         allowed= string.ascii_letters + string.digits
         session['password']= ''.join(random.choice(allowed) for i in range(24))
     if 'myposts' not in session:
-        session['myposts'] = list()
+        session['myposts'] = list() 
 
     now = datetime.datetime.utcnow()
     if 'lastclear' not in session:
@@ -57,9 +54,7 @@ def assign_session_params():
     delta = now - session['lastclear']
     if delta > datetime.timedelta(days=2): 
         session['lastclear'] = now
-        for i, pid in enumerate(session['myposts']):
-            if not db.is_post(pid):
-                del session['myposts'][i] # clears out the posts cookies 
+        session['myposts'] = fetch_updated_myposts(session['myposts'])
     return None
 
 def checktime(fn):
@@ -87,93 +82,21 @@ def adminonly(fn):
         if 'mod' in session:
             return fn(*args, **kwargs)
         else:
-            return general_error('You must be an admin to see this page') # proper would be 401
+            return general_error('You must be an admin to see this page'), # proper would be 401 Unauthorized
     return go
-
-def hashfile(afile, blocksize=65536):
-    hasher = hashlib.sha256()
-    buf = afile.read(blocksize)
-    while len(buf) > 0:
-        hasher.update(buf)
-        buf = afile.read(blocksize)
-    afile.seek(0,0) # reset the file pointer
-    return hasher.hexdigest()
-
-
-def _validate_post(post):
-    """ Does all our robot/spam checking
-        Args:
-            post (str): the full content of the post
-        Returns:
-            bool: True if acceptable
-    """
-    return True
-
 
 @app.route('/<board>/upload', methods=['POST'])
 def newthread(board):
     if 'image' not in request.files:
         return general_error('New threads must have an image')
+    cache.delete_memoized('board', board)
     return _upload(board)
 
 @app.route('/<board>/<int:thread>/upload', methods=['POST'])
 def newpost(board, thread):
+    cache.delete_memoized('thread', board, thread)
     return _upload(board, thread)
 
-def _save_imagemagick(mainpath, ext, thumbpath, w, h):
-    # the > stops small images from being enlarged in imagemagick
-    size = '{w}x{h}>' .format(w=w, h=h) # '>' stops small images from being expanded to fit
-    command = []
-    mainpath = mainpath + '[0]' # [0] gets page0 from the file. First frame of static image = the image.
-    if ext == 'pdf':
-        command = ['convert', mainpath, '-thumbnail', size, '-background', 'white', '-alpha', 'remove', thumbpath]
-    else:
-        command = ['convert', mainpath, '-thumbnail', size, '-format', 'jpg', thumbpath]
-    subprocess.run(command)
-
-def _save_ffmpeg(mainpath, ext, thumbpath, w, h):
-    # don't upscale
-    # take the min scaling factor
-    scale='scale=iw*min(1\\,min({w}/iw\\,{h}/ih)):-1'.format(w=w, h=h)
-    command = ['ffmpeg', '-i', mainpath, '-vframes', '1', '-vf', scale, thumbpath]
-    print(command)
-    subprocess.run(command)
-
-def _save_image(image, ext, mainpath, thumbpath, isop):
-    image.save(mainpath) # first save the full image, unchanged
-
-    h,w = (cfg.op_thumb_max_height, cfg.op_thumb_max_width) if isop \
-     else (cfg.post_thumb_max_height, cfg.post_thumb_max_width)
-
-    if ext in cfg.imagemagick_formats: 
-        _save_imagemagick(mainpath, ext, thumbpath, w, h)
-    elif ext in cfg.ffmpeg_formats:
-        _save_ffmpeg(mainpath, ext, thumbpath, w, h)
-    else:
-        print("WE SHOULD NEVER HAVE REACHED THIS")
-
-def handle_image(image, isop):
-    err = None
-    f, e = os.path.splitext(image.filename)
-    ext = e[1:] # get rid of the . in the extension
-    allowed = ext in ALLOWED_EXTENSIONS
-    if not allowed:
-        err = 'File not allowed'
-    basename = hashfile(image) # returns hex
-    basename = str(int(basename[:16], 16)) # more or less like 4chan
-    newname = "%s.%s" % (basename, ext) 
-    # files is whats actually being passed to the db
-    mainpath  = os.path.join(app.config['UPLOAD_FOLDER'], newname)
-    thumbpath = os.path.join(app.config['THUMB_FOLDER'], '%s.%s' % (basename, 'jpg'))
-
-    if os.path.isfile(mainpath):
-        err = 'File already exists'
-    newbasename = _save_image(image, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
-
-    filedict = {
-    'filename'  : basename,
-    'filetype'  : ext}
-    return filedict, err
 #@checktime
 def _upload(board, threadid=None):
     """ handles the entire post upload process, and validation
@@ -183,47 +106,55 @@ def _upload(board, threadid=None):
         Returns:
             Redirects to the (new) thread
     """
-    def allowed_file(filename):
-        f, e = os.path.splitext(filename)
-        h = e[1:] # get rid of the . in the extension
-        g = h in ALLOWED_EXTENSIONS
-        return h, g
-
     # read file and form data
     image     = request.files['image']
-    subject   = request.form.get('title', default= '', type= str).strip()
-    email     = request.form.get('email', default= '', type= str).strip()
-    name      = request.form.get('name' , default= '', type= str).strip()
-    post      = request.form.get('body' , default= '', type= str).strip()
-    sage      = request.form.get('sage' , default= '', type= str).strip()
-    spoilered = request.form.get('spoilered', default= False, type= bool)
-
-    if 'password' not in session: # I believe this will occur if cookies are being blocked
-        assign_pass()
-    password = session['password']
-    if not sage:
-        sage=False
+    subject   = request.form.get('title'     , default= ''    , type= str).strip()
+    email     = request.form.get('email'     , default= ''    , type= str).strip()
+    post      = request.form.get('body'      , default= ''    , type= str).strip()
+    sage      = request.form.get('sage'      , default= False , type= bool).strip()
+    spoilered = request.form.get('spoilered' , default= False , type= bool)
+    name      = request.form.get('name',
+                     default= 'Anonymous',
+                     type= str).strip()
+    password  = request.form.get('password',
+                    default= session['password'],
+                    type= str)
 
     if (not post or post.isspace()) and not image:
         return general_error('Cannot have an empty post') 
-    if not _validate_post(post):
+    if not gh._validate_post(post):
         return general_error('Spam/Robot detected')
     if threadid and not db._is_thread(threadid):
         return general_error('Specified thread does not exist')
 
-    # and now we start doing real work
+    # and now we start saving the post
     isop = False if threadid else True
-
     # in the future, for handling multiple images, this would be looping through all the images
     files = list()
     if image:
-        filedict, err= handle_image(image, isop) # returns filedict if we're good, a string-error if not
-        if err:
-            return general_error(err)
-        else:
-            filedict['spoilered'] = spoilered
-            files.append(filedict)
+        f, e = os.path.splitext(image.filename)
+        ext = e[1:] # get rid of the . in the extension
+        allowed = ext in ALLOWED_EXTENSIONS
+        if not allowed:
+            return general_error('File not allowed')
+        basename = gh.hashfile(image) # returns hex
+        basename = str(int(basename[:16], 16)) # more or less like 4chan
+        newname = "%s.%s" % (basename, ext) 
+        # files is whats actually being passed to the db
+        mainpath  = os.path.join(app.config['UPLOAD_FOLDER'], newname)
+        thumbpath = os.path.join(app.config['THUMB_FOLDER'], '%s.%s' % (basename, 'jpg'))
 
+        if os.path.isfile(mainpath):
+            return general_error('File already exists')
+            err = 'File already exists'
+        newbasename = gh._save_image(image, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        filedict = {
+        'filename'  : basename,
+        'filetype'  : ext,
+        'spoilered' : spoilered}
+        files.append(filedict)
+
+    # drop it into the DB
     parsed_body, reflist = db.parse_post(post)
     if isop: 
         threadid, pid = db.create_thread(board, files, post, parsed_body, password, name, email, subject)
@@ -231,22 +162,18 @@ def _upload(board, threadid=None):
         pid = db.create_post(threadid, files, post, parsed_body, password, name, email, subject, sage)
     if reflist:
         db.create_backrefs((pid,reflist))
-    db._check_backref_preexistence(pid) # check if this post was future-referenced, and reparse those posts if  neccessary
-    session['myposts'].append(pid)
+    # Special case: posts may >>pid posts that do not actually exist yet. 
+    # If they reference the pid we _just_ created, then we'll have to 
+    # reparse those old posts.
+    db._check_backref_preexistence(pid)
+    session['myposts'].append(pid) # assign the post to the user, for (You) [JS]
     session.modified = True # necessary to actually save the session change
     return redirect(url_for('thread', board=board, thread=threadid, _anchor=pid))
 
-@app.route('/<board>/<thread>/', methods=['GET'])
-def thread(board, thread):
-    if not db._is_thread(thread):
-        return general_error('Specified thread does not exist')
-    thread_data = db.fetch_thread(thread)
-    board_data = db.fetch_board_data(board)
-    return render_template('thread.html', thread=thread_data, board=board_data)
 
 @app.route('/', methods=['GET'])
 def root():
-    return redirect(url_for('index', board='v'))
+    return redirect(url_for('index', board='v')) # TODO: Make a boardlist page.
 
 @app.route('/<board>', methods=['GET'])
 @app.route('/<board>/', methods=['GET'])
@@ -262,8 +189,21 @@ def index(board):
     threads = db.fetch_page(board, page)
 
     board = db.fetch_board_data(board)
-    counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
-    return render_template('page.html', threads=threads, board=board, counts=counts)
+    hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
+    return render_template('board_index.html',
+            threads=threads,
+            board=board,
+            counts=hidden_counts)
+
+@app.route('/<board>/<thread>/', methods=['GET'])
+def thread(board, thread):
+    if not db._is_thread(thread):
+        return general_error('Specified thread does not exist')
+    thread_data = db.fetch_thread(thread)
+    board_data = db.fetch_board_data(board)
+    return render_template('thread.html',
+            thread=thread_data,
+            board=board_data)
 
 def general_error(error):
     return render_template('error.html', error_message=error)
