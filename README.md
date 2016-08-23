@@ -35,12 +35,14 @@ So in total,
 * FFMPEG (probably; not yet though)
 
 
-```
+```bash
 virtualenv -p python3 testchan
 source testchan/bin/activate.sh
 pip3 install -r requirements.txt
 export FLASK_APP=testchan.py
 export FLASK_DEBUG=1
+sqlite3 db1.sqlite
+# python3 db_main.py # run this to generate some posts for testing
 flask run
 ```
 
