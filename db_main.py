@@ -521,7 +521,7 @@ def _check_backref_preexistence(post_id, engine=None):
         parse_post(body, pid)
 
 def makedata():
-    import general_helpers as gh
+    import gen_helpers as gh
     v = create_board('v', 'vidya', 'vidyagames')
     a = create_board('a', 'anything', 'anything at all')
     img1 = [{'filename':'img1', 
