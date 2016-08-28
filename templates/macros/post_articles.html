@@ -12,7 +12,7 @@
     {% set pid = post.id %}
     <header>
         <input type="checkbox" class="postCheckbox">
-        <span class="control"></span>
+        <span class="control">▶</span>
         {% if isop %} <!-- subject is for threads only, at least for now -->
         <h3> {{ post.subject }} </h3>
         {% endif %}
@@ -47,13 +47,9 @@
     # if isop:                      
         {% set width = cfg.op_thumb_max_width %}
         {% set height= cfg.op_thumb_max_height %}
-        {# set maxwidth = cfg.op_exp_max_width #}
-        {# set maxheight= cfg.op_exp_max_height #}
     # else:
         {% set width = cfg.post_thumb_max_width %}
         {% set height= cfg.post_thumb_max_height %}
-        {# set maxwidth = cfg.post_exp_max_width #}
-        {# set maxheight= cfg.post_exp_max_height #}
     # endif 
 
     # for f in filelist:
@@ -89,7 +85,7 @@
 {%- endmacro %}
 
 
-{% macro merge(boardname, threadid, post, isop, counts='') %}
+{% macro article(boardname, threadid, post, isop, counts='') %}
     {% set tid = threadid %}
     {% set pid = post.id %} 
     # if isop:

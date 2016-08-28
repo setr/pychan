@@ -1,4 +1,4 @@
-from config import cfg
+import config as cfg
 import sqlalchemy
 from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey,UniqueConstraint
 import datetime
@@ -49,6 +49,7 @@ class DB():
                 Column('board_id'           , Integer   , ForeignKey("boards.id" , **cascade)),
                 Column('op_id'              , Integer), #ForeignKey("posts.id" , **cascade)),
                 Column('alive'              , Boolean   , default=True), # is it on autosage?
+                Column('locked'             , Boolean   , default=False), # Mod-Locked?
                 Column('sticky'             , Boolean   , default=True),
                 UniqueConstraint('board_id' , 'op_id'))
         self.posts = Table('posts', self.metadata,

@@ -1,4 +1,4 @@
-from config import cfg
+import config as cfg
 from db_meta import db
 import sqlalchemy
 from sqlalchemy.sql import func
@@ -93,7 +93,7 @@ def create_post(conn, thread, filedatas, body, parsed, password, name='', email=
             postdata['sage'] = fsage
 
         post_id = conn.execute(postquery, postdata).inserted_primary_key[0]
-        if filedatas[0]: # list of empty dictionary
+        if filedatas: # list of empty dictionary
             for f in filedatas:
                 f['post_id'] = post_id
             conn.execute(filesquery, filedatas)
@@ -237,12 +237,12 @@ def update_post_parsed(conn, parsed, postid):
 def delete_thread(conn, threadid):
     """ wipe out a whole thread """
     # delete the thread itself
-    d_threadq = threads.delete().where(threads.c.op_id == bindparam('postid')) 
+    d_threadq = threads.delete().where(threads.c.id == threadid) 
     # delete all posts for the thread
-    d_postq = posts.delete().where(posts.c.thread_id == bindparam('threadid')) 
+    d_postq = posts.delete().where(posts.c.thread_id == threadid) 
     with transaction(conn):
-        conn.execute(delthreadq, postid=postid) 
-        conn.execute(delpostq, threadid=threadid)
+        conn.execute(d_threadq) 
+        conn.execute(d_postq)
 
 def delete_post(conn, postid):
     """ the actual post deletion """

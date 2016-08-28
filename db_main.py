@@ -1,5 +1,5 @@
 # project specific
-from config import cfg
+import config as cfg
 from db_meta import db
 import db_cud
 
@@ -23,7 +23,7 @@ from contextlib import contextmanager
 
 # This file contains the entry points to db work from the flask application
 # All functions here create new connections, and consume engines
-# All functions must be decorated with either with_[slave|engine]
+# All functions must be decorated with with_db(slave|engine)
 # which will inject the relevant engine for use by the function.
 # None of these functions should ever be called by another db function.
 
@@ -33,7 +33,7 @@ from contextlib import contextmanager
 #engine, slave= db.engine, db.slave
 #metatadata= db.metadata
 #boards, backrefs, threads, posts, mods, banlist = db.boards, db.backrefs, db.threads, db.posts, db.mods, db.banlist
-engine, slave= db.engine, db.slave
+master, slave= db.engine, db.slave
 metatadata= db.metadata
 boards = db.boards
 backrefs = db.backrefs
@@ -54,19 +54,15 @@ def connection(engine):
     finally:   
         conn.close()
 
-def with_slave(fn):
-    """ Simple decorator to inject slave db as the engine """
-    def go(*args, **kwargs):
-        return fn(*args, **kwargs, engine=db.slave)
-    return go
-
-def with_master(fn):
-    """ Simple decorator to inject master db as the engine """
-    def go(*args, **kwargs):
-        return fn(*args, **kwargs, engine=db.engine)
-    return go
+def with_db(target):
+    """ Simple decorator to inject target db as the engine """
+    def wrap(fn):
+        def wrapped(*args, **kwargs):
+            return fn(*args, engine=target, **kwargs)
+        return wrapped
+    return wrap
     
-@with_master
+@with_db(master)
 def delete_post(postid, password, ismod=False, engine=None):
     """ Validates that the user can delete the post, then deletes it
         If the post is the op, the whole thread will be deleted as well.
@@ -75,24 +71,36 @@ def delete_post(postid, password, ismod=False, engine=None):
             postid (int): id of post to be deleted
             password (str): plaintext password for the user (auto-gen'd), should have been stored in the cookie
             ismod (bool): is this a validated mod?
+        Returns:
+            error: None if worked, error-string if failed
     """
-    candel = False
+    candel = False 
     done = False
-    password = password.encode('utf-8')
+    #password = password.encode('utf-8')
     if not ismod:
-        query = select([posts.c.password]).where(postid == bindparam('postid'))
-        hashed = engine.execute(query, postid=postid).fetchone()['password']
-        candel = bcrypt.hashpw(password, hashed) == hashed
+        query = select([posts.c.password]).where(posts.c.id == postid)
+        hashed = engine.execute(query).fetchone()['password']
+        #candel = bcrypt.hashpw(password, hashed) == hashed
+        # we aren't actually hashing post-passwords
+        candel = password == hashed
+        print (postid)
+        print ( password )
+        print ( hashed )
+        print ( candel )
+    else:
+        candel = True
 
-    if ismod or candel:
+    if candel:
         with connection(engine) as conn:
-            threadid = _fetch_threadid(post_id)
+            threadid = _fetch_threadid(postid)
             if threadid: # if it had returned, its was the op for a thread
                 db_cud.delete_thread(conn, threadid)
             else:
                 db_cud.delete_post(conn, postid)
-
-@with_master
+        return None
+    else:
+        return "incorrect password"
+@with_db(master)
 def create_post(thread, filedatas, body, parsed, password, name='', email='', subject='', sage=False, engine=None):
     """ Submits a new thread, without value checking. 
         Args:
@@ -114,7 +122,7 @@ def create_post(thread, filedatas, body, parsed, password, name='', email='', su
     return pid
 
 
-@with_slave
+@with_db(slave)
 def fetch_board_data(title, engine=None):
     """ Gets board data, based on board-title 
         Args:
@@ -125,7 +133,7 @@ def fetch_board_data(title, engine=None):
     q = select([boards]).where(boards.c.title == title)
     return engine.execute(q).fetchone()
 
-@with_slave
+@with_db(slave)
 def fetch_thread(threadid, engine=None):
     """ gets all the posts for a single thread
         Args:
@@ -138,12 +146,16 @@ def fetch_thread(threadid, engine=None):
     posts_query = select([posts]).where(posts.c.thread_id == threadid).\
                   order_by(asc(posts.c.id))
 
-    posts_result = engine.execute(posts_query, threadid=threadid).fetchall() 
+    posts_result = engine.execute(posts_query).fetchall() 
     post_list = inject(posts_result)
-    for post in post_list:
-        p = dict(post.items())
+    for p in post_list:
         p['h_time'] = _rel_timestamp(p['timestamp'])
     return post_list
+
+@with_db(slave)
+def is_locked(threadid, engine=None):
+    q = select([threads.c.locked]).where(threads.c.id == threadid)
+    return engine.execute(q).fetchone()[0]
 
 def _rel_timestamp(timestamp):
     """ returns a human readable time-delta between timestamp and current time,
@@ -181,7 +193,7 @@ def parse_post(post, post_id=None):
     # we need to parse out the pids
     # then form the html for it
 
-    # werkzeug escape: Replace special characters “&”, “<”, “>” and (”) to HTML-safe sequences.
+    # werkzeug escape: Replace special characters "&", "<", ">" and (") to HTML-safe sequences.
     # the regex themselves
         # if an html special character is in the regex, then don't escape() the regex.
         # instead, you'll have to use the html sequences in the regex.
@@ -226,7 +238,7 @@ def parse_post(post, post_id=None):
     # and we finally return an HTML-safe version of the post, with our stylings injected.
     return post, addrefs
 
-@with_master
+@with_db(master)
 def update_post_parsed(post, post_id, engine=None):
     with connection(engine) as conn:
         db_cud.update_post_parsed(conn, post, post_id)
@@ -245,12 +257,12 @@ def fetch_backrefs(postid, engine):
     stmt = text(q).columns(backrefs.c.tail, posts.c.thread_id)
     return engine.execute(q, postid=postid).fetchall()
 
-@with_slave
+@with_db(slave)
 def fetch_files(postid, engine=None):
     q = select([files.c.filename, files.c.filetype, files.c.spoilered]).where(files.c.post_id == postid).order_by(files.c.post_id)
     return engine.execute(q).fetchall()
 
-@with_slave
+@with_db(slave)
 def count_hidden(thread_id, engine=None):
     """ Given a thread_id, get the number of posts/files not displayed on the index pages
     posts_in_thread - posts_shown - op (op is always shown; =1)
@@ -303,7 +315,7 @@ def inject(posts_result):
     return done
 
 
-@with_slave 
+@with_db(slave)
 def fetch_page(board, pgnum=0, engine=None):
     """ Generates the latest index
     Get threads (pgnum * thread_count) to ((pgnum+1) * thread_count) threads, ordered by the latest post in the thread
@@ -335,27 +347,6 @@ def fetch_page(board, pgnum=0, engine=None):
             order_by(desc(posts.c.id)).\
             limit( 10 ).\
             offset( offset )
-    print(latest_threads_query)
-
-
-    # latest_threads_query = """
-    #    SELECT threads.id as id, op_id FROM threads
-    #    JOIN posts
-    #    ON threads.id = posts.thread_id
-    #    WHERE board_id = (
-    #        SELECT board_id from boards where boards.title = :board_title)
-    #    AND posts.id = (
-    #        SELECT max(id) FROM posts p1 WHERE threads.id = p1.thread_id
-    #                                                AND p1.sage = :false)
-    #    GROUP BY threads.id
-    #    ORDER BY posts.id DESC 
-    #    LIMIT 10 OFFSET :offset;
-    #    """
-    # stmt = text(latest_threads_query).columns(threads.c.id, threads.c.op_id)
-    # thread_data = engine.execute(stmt, board_title=board, 
-    #                                 offset=offset, 
-    #                                 false=str(sqlalchemy.false()),
-    #                                 true=str(sqlalchemy.true())).fetchall()
     thread_data = engine.execute(latest_threads_query)
 
 
@@ -372,10 +363,12 @@ def fetch_page(board, pgnum=0, engine=None):
         posts_result = engine.execute(posts_query).fetchall() 
         posts_result.insert(0, op_result)
         post_list = inject(posts_result)
+        for p in post_list:
+            p['h_time'] = _rel_timestamp(p['timestamp'])
         pagedata.append(post_list)
     return pagedata 
 
-@with_master
+@with_db(master)
 def create_backrefs_for_thread(backreflist, engine=None):
     """ Adds backrefs for each post, for an entire thread
         Args:
@@ -384,7 +377,7 @@ def create_backrefs_for_thread(backreflist, engine=None):
     """
     with connection(engine) as conn:
         db_cud.create_backrefs_for_thread(conn, backreflist)
-@with_master
+@with_db(master)
 def create_backrefs(backrefs, engine=None):
     """
         Args:
@@ -395,7 +388,7 @@ def create_backrefs(backrefs, engine=None):
     with connection(engine) as conn:
         db_cud.create_backrefs(conn, backrefs)
 
-@with_slave
+@with_db(slave)
 def fetch_backrefs(postid, engine):
     """ Gets the list of all posts pointing to a given post
         Args:
@@ -411,14 +404,14 @@ def fetch_backrefs(postid, engine):
     return engine.execute(q, postid=postid).fetchall()
 
 #TODO: db_cud.mark_thread_dead
-@with_master
+@with_db(master)
 def mark_thread_autosage(threadid, engine=None):
     with connection(engine) as conn:
         db_cud.mark_thread_dead(conn, threadid)
     engine.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-@with_master
+@with_db(master)
 def create_thread(boardname, filedatas, body, parsed, password, name='', email='', subject='', engine=None):
     """ Submits a new thread, without value checking. 
         Args:
@@ -443,7 +436,7 @@ def create_thread(boardname, filedatas, body, parsed, password, name='', email='
                                 email, subject)
     return threadid, postid
 
-@with_master
+@with_db(master)
 def create_board(title, subtitle, slogan, active=True, engine=None):
     """ Creates a new board (multiple new tables)
         Args:
@@ -457,7 +450,7 @@ def create_board(title, subtitle, slogan, active=True, engine=None):
         boardid = db_cud.create_board(conn, title, subtitle, slogan, active)
     return boardid
 
-@with_slave
+@with_db(slave)
 def fetch_all_boards(engine=None):
     """ returns all boards as a list of tuples [(boardid, boardname)]
         Returns:
@@ -470,51 +463,49 @@ def fetch_all_boards(engine=None):
     board_list = engine.execute(query).fetchall()
     return board_list
 
-@with_slave
+@with_db(slave)
 def is_post(postid, engine=None):
     q = select([posts.c.id]).where(posts.c.id == postid)
     pid = engine.execute(q).fetchone()
     return True if pid else False
 
-@with_slave
+@with_db(slave)
 def fetch_updated_myposts(postids, engine=None):
     """ returns a list of the postids that still actually exist in the db. """
     #postids = tuple(postids) # in_ does not consume lists
     
     q = select([posts.c.id]).where(posts.c.id.in_(postids))
-    print(q)
     results = engine.execute(q).fetchall()
-    print(results)
     return [ r[0] for r in results ]
 
-@with_slave
+@with_db(slave)
 def _fetch_thread_of_post(postid, engine=None):
     q = select([posts.c.thread_id]).where(posts.c.id == bindparam('postid'))
     pid = engine.execute(q, postid=postid).fetchone()
     return pid['thread_id'] if pid else None
 
-@with_slave
+@with_db(slave)
 def _fetch_threadid(opid, engine=None):
     """ given the op_id, gets the associated thread_id """
     q = select([threads.c.id]).where(threads.c.op_id == bindparam('opid'))
     tid = engine.execute(q, opid=opid).fetchone()
     return tid['id'] if tid else None
 
-@with_slave
+@with_db(slave)
 def _is_thread(threadid, engine=None):
     """ given the threadid, see if the thread exists"""
     q = select([threads.c.id]).where(threads.c.id == bindparam('threadid'))
     tid = engine.execute(q, threadid=threadid).fetchone()
     return True if tid else False
 
-@with_slave
+@with_db(slave)
 def validate_mod(username, password, engine=None):
     password = password.encode('utf-8')
     hashed = engine.execute(select([mods.c.username]).\
                 where(username=bindparam('username')), username=username)['password']
     return bcrypt.hashpw(password, hashed) == hashed
 
-@with_slave
+@with_db(slave)
 def _check_backref_preexistence(post_id, engine=None):
     """ checks if the post already has references to it. 
     If it does, those posts will be reparsed to inject <a> tags.
@@ -530,12 +521,13 @@ def _check_backref_preexistence(post_id, engine=None):
         parse_post(body, pid)
 
 def makedata():
+    import general_helpers as gh
     v = create_board('v', 'vidya', 'vidyagames')
     a = create_board('a', 'anything', 'anything at all')
-    img1 = [{'filename':'img1.png', 
+    img1 = [{'filename':'img1', 
             'filetype': 'png',
             'spoilered': False}]
-    img2 = [{'filename':'img2.png', 
+    img2 = [{'filename':'img2', 
             'filetype': 'png',
             'spoilered': False}]
     vt1, vp1 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp1')

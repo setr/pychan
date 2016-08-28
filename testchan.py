@@ -1,5 +1,5 @@
 import db_main as db
-from config import cfg
+import config as cfg
 import gen_helpers as gh
 from flask import Flask, request, render_template
 from flask import url_for, flash, redirect, session
@@ -54,7 +54,7 @@ def assign_session_params():
     delta = now - session['lastclear']
     if delta > datetime.timedelta(days=2): 
         session['lastclear'] = now
-        session['myposts'] = fetch_updated_myposts(session['myposts'])
+        session['myposts'] = db.fetch_updated_myposts(session['myposts'])
     return None
 
 def checktime(fn):
@@ -87,15 +87,30 @@ def adminonly(fn):
 
 @app.route('/<board>/upload', methods=['POST'])
 def newthread(board):
+    if db.is_locked(threadid):
+        return general_error('Thread is locked')
     if 'image' not in request.files:
         return general_error('New threads must have an image')
-    cache.delete_memoized('board', board)
     return _upload(board)
 
-@app.route('/<board>/<int:thread>/upload', methods=['POST'])
-def newpost(board, thread):
-    cache.delete_memoized('thread', board, thread)
-    return _upload(board, thread)
+@app.route('/<board>/<int:threadid>/upload', methods=['POST'])
+def newpost(board, threadid):
+    if db.is_locked(threadid):
+        return general_error('Thread is locked')
+    return _upload(board, threadid)
+
+@app.route('/<board>/delete', methods=['POST'])
+def delpost(board):
+    postid = request.form.get('postid')
+    password = request.form.get('password')
+
+    ismod = True if 'mod' in session else False
+    error = db.delete_post(postid, password, ismod)
+    if error:
+        return general_error(error)
+
+    url = request.form.get('url')
+    return redirect(url)
 
 #@checktime
 def _upload(board, threadid=None):
@@ -111,13 +126,13 @@ def _upload(board, threadid=None):
     subject   = request.form.get('title'     , default= ''    , type= str).strip()
     email     = request.form.get('email'     , default= ''    , type= str).strip()
     post      = request.form.get('body'      , default= ''    , type= str).strip()
-    sage      = request.form.get('sage'      , default= False , type= bool).strip()
+    sage      = request.form.get('sage'      , default= False , type= bool)
     spoilered = request.form.get('spoilered' , default= False , type= bool)
     name      = request.form.get('name',
                      default= 'Anonymous',
                      type= str).strip()
     password  = request.form.get('password',
-                    default= session['password'],
+                    default= "idc",
                     type= str)
 
     if (not post or post.isspace()) and not image:

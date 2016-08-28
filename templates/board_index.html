@@ -23,18 +23,19 @@
             {% set op = thread[0] %}
             {% set tid = op.thread_id %}
             <section id={{ tid }}>
-            {{ posts.merge(tit, tid, op, isop=True, counts=counts[loop.index-1]) }}
-            <hr> ## END OF ORIGINAL POST
+            {{ posts.article(tit, tid, op, isop=True, counts=counts[loop.index-1]) }}
+            <hr> ## END OF OP
             
             {% for post in thread[1:] %}
                 <article id="{{ post.id }}">
-                {{ posts.merge(tit, tid, post, isop=False) }}
+                {{ posts.article(tit, tid, post, isop=False) }}
                 </article>
             {% endfor %}
             <hr>
             </section> ## END OF THREAD
         {% endfor %} 
         </threads>
+        <input type="password" id="pass"/> 
     </body>
 </html>
     

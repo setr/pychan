@@ -1,5 +1,6 @@
 import subprocess
 import hashlib
+import config as cfg
 
 def hashfile(afile, blocksize=65536):
     hasher = hashlib.sha256()
@@ -18,8 +19,6 @@ def _validate_post(post):
             bool: True if acceptable
     """
     return True
-
-
 
 def _save_image(image, ext, mainpath, thumbpath, isop):
     image.save(mainpath) # first save the full image, unchanged
@@ -53,4 +52,5 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
                 '-vf'      , scale    ,
                 thumbpath]
     # there should be no other valid exts
+    # we're assumming success
     subprocess.run(command)
