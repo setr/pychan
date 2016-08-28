@@ -35,12 +35,14 @@ So in total,
 * FFMPEG (probably; not yet though)
 
 
-```
+```bash
 virtualenv -p python3 testchan
 source testchan/bin/activate.sh
 pip3 install -r requirements.txt
 export FLASK_APP=testchan.py
 export FLASK_DEBUG=1
+sqlite3 db1.sqlite
+# python3 db_main.py # run this to generate some posts for testing
 flask run
 ```
 
@@ -62,14 +64,21 @@ then go to localhost:5000
 - [ ] Deleting a post currently does not delete associated file(s), if any
 
 ### Client-Side Viewing
-- [ ] Hide posts (JS)
-- [ ] Hide threads (JS)
+- [x] Hide posts (JS)
+- [x] Hide threads (JS)
 - [ ] Reverse Image search links
-- [ ] Delete Post option (with auto-gen'd pass check)
-       - Should probably add the ability to set your own pass, if you refuse allow cookies
-       - But then you'll have to set the pass on every post you write, and enter it on delete, since obviously I can no longer store the password anywhere to autofill it for you. Dunno if anyone will ever use that functionality.
+- [x] Delete Post option (with auto-gen'd pass check)
+       - [x] with cookies
+              - password field lives in the bottom right
+              - stores password in client-cookie, plaintext
+              - autogenerates if it doesn't exist
+              - updates to user-supplied password if field is modified when post is submitted
+       - [x] without
+              - user-supplied password must be submitted every time, for deletion to work.
+              - 'idc' becomes the default password if nothing is supplied. I may change this to a randomly generated value later.
 - [ ] Nested inline reply-posts 
 - [ ] Hover reply posts
+- [ ] Hover menu-items
 
 ### REPLY FORM
 - [x] Auto-resize textarea for inject-reply input: https://github.com/ro31337/jquery.ns-autogrow (JS)
@@ -78,14 +87,19 @@ then go to localhost:5000
 - [ ] Actual POSTing of reply data (JINJA/PYTHON)
        - [x] body + file can POST 
        - [ ] additional fields can POST (name, sage, spoiler, etc)
-- [x] New Thread vs New Reply distinction (JINJA)
+              - [x] name
+              - [ ] sage
+              - [ ] spoiler
+              - [ ] thread-title
+- [ ] New Thread vs New Reply distinction (JS)
 
 ### IMAGES
 - [x] Filename on server => hash.filetype
-- [ ] Fail on duplicate file upload
+- [x] Fail on duplicate file upload
 - [ ] Generate and link to thumbnails
        - Need to look into this. Might be complex for getting them out of webms
-       - PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
+       - webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault.
+       - [ ] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
 - [ ] Full image on hover (JS)
        - Shouldn't apply to webms (it's annoying)
        - Shouldn't apply to PDFs
