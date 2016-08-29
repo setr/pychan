@@ -144,7 +144,8 @@ $(".image, .video").each(function () {
             } else if ($(this).hasClass('video')) {
                 thumb.remove();
                 img = $("<video>", {"class": "expanded",
-                                    controls: true}).append(
+                                    controls: true,
+                                    loop: true}).append(
                            $("<source>", {
                                "src": mainpath,
                                "type": "video/webm"}));

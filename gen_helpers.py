@@ -32,13 +32,13 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
         mainpath = mainpath + '[0]' # [0] gets page0 from the file. 
                                     # First frame of static image = the image.
         if ext == 'pdf':
-                command = ['convert'      , mainpath ,
-                            '-thumbnail'  , size     ,
-                            '-background' , 'white'  ,
-                            '-alpha'      , 'remove' ,
-                            thumbpath]
+            command = ['/usr/bin/convert'      , mainpath ,
+                        '-thumbnail'  , size     ,
+                        '-background' , 'white'  ,
+                        '-alpha'      , 'remove' ,
+                        thumbpath]
         else:
-            command = ['convert'     , mainpath ,
+            command = ['/usr/bin/convert'     , mainpath ,
                         '-thumbnail' , size     ,
                         '-format'    , 'jpg'    ,
                         thumbpath]
@@ -46,7 +46,7 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
         # don't upscale
         # take the min scaling factor
         scale='scale=iw*min(1\\,min({w}/iw\\,{h}/ih)):-1'.format(w=w, h=h)
-        command = ['ffmpeg',
+        command = ['/usr/bin/ffmpeg',
                 '-i'       , mainpath ,
                 '-vframes' , '1'      ,
                 '-vf'      , scale    ,
