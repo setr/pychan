@@ -1,0 +1,10 @@
+server {
+    listen 80;
+    server_name 45.55.67.68;
+    client_max_body_size 10M;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:/var/www/pychan/pychan.sock;
+    }
+}
