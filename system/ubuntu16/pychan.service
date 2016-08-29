@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to serve pychan
+After=network.target
+
+[Service]
+User=webdev
+Group=www-data
+WorkingDirectory=/var/www/pychan
+Environment="PATH=/var/www/pychan/pychanenv/bin"
+ExecStart=/var/www/pychan/pychanenv/bin/uwsgi --ini pychan.ini --catch-exceptions
+
+[Install]
+WantedBy=multi-user.target
