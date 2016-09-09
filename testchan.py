@@ -103,13 +103,28 @@ def newpost(board, threadid):
 def delpost(board):
     postid = request.form.get('postid')
     password = request.form.get('password')
+    url = request.form.get('url')
 
-    ismod = True if 'mod' in session else False
+    ismod = 'mod' in session
+    if db._is_thread(postid):
+        files = db.fetch_files_thread(postid)
+    else:
+        files = db.fetch_files(postid)
+    files = map(lambda x: x['filename'] + '.' + x['filetype'], files)
+    
     error = db.delete_post(postid, password, ismod)
     if error:
         return general_error(error)
 
-    url = request.form.get('url')
+    for filename in files:
+        try:
+            mainfile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            thumbfile = os.path.join(app.config['THUMB_FOLDER'], filename)
+            os.remove(mainfile)
+            os.remove(thumbfile)
+        except OSError:
+            pass
+    
     return redirect(url)
 
 #@checktime

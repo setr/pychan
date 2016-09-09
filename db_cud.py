@@ -233,9 +233,10 @@ def update_post_parsed(conn, parsed, postid):
         query = posts.update().where(posts.c.id == postid).values(parsed=parsed)
         conn.execute(query)
     
-
 def delete_thread(conn, threadid):
-    """ wipe out a whole thread """
+    """ wipe out a whole thread 
+        THIS SHOULD BE CALLING delete_post"""
+
     # delete the thread itself
     d_threadq = threads.delete().where(threads.c.id == threadid) 
     # delete all posts for the thread
@@ -245,7 +246,8 @@ def delete_thread(conn, threadid):
         conn.execute(d_postq)
 
 def delete_post(conn, postid):
-    """ the actual post deletion """
+    """ the actual post deletion
+        TODO: THIS NEEDS TO DELETE FILES TOO"""
     d_backrefsq = backrefs.delete().where(backrefs.c.head == bindparam('postid'))
     d_postq = posts.delete().where(posts.c.id == bindparam('postid'))
     with transaction(conn):

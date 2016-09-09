@@ -25,7 +25,11 @@ article{
 }
 .control{
     font-size: 9pt;
-    }
+}
+.popup-menu {
+    z-index: 5;
+}
+/*
 .postmenu{
     position: relative;
     display: inline-block;
@@ -33,4 +37,4 @@ article{
 .postmenulist{
     position: absolute;
     list-style: none;
-}
+}*/

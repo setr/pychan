@@ -263,6 +263,17 @@ def fetch_files(postid, engine=None):
     return engine.execute(q).fetchall()
 
 @with_db(slave)
+def fetch_files_thread(postid, engine=None):
+    postids = select([posts.c.id]).where(posts.c.thread_id == postid)
+    q = select(
+            [files.c.filename, 
+                files.c.filetype, 
+                files.c.spoilered]).where(
+        files.c.post_id.in_( postids )).order_by(files.c.post_id)
+    return engine.execute(q).fetchall()
+            
+
+@with_db(slave)
 def count_hidden(thread_id, engine=None):
     """ Given a thread_id, get the number of posts/files not displayed on the index pages
     posts_in_thread - posts_shown - op (op is always shown; =1)
@@ -484,6 +495,7 @@ def _fetch_thread_of_post(postid, engine=None):
     pid = engine.execute(q, postid=postid).fetchone()
     return pid['thread_id'] if pid else None
 
+## TODO: I don't know this is still relevant
 @with_db(slave)
 def _fetch_threadid(opid, engine=None):
     """ given the op_id, gets the associated thread_id """
@@ -494,8 +506,8 @@ def _fetch_threadid(opid, engine=None):
 @with_db(slave)
 def _is_thread(threadid, engine=None):
     """ given the threadid, see if the thread exists"""
-    q = select([threads.c.id]).where(threads.c.id == bindparam('threadid'))
-    tid = engine.execute(q, threadid=threadid).fetchone()
+    q = select([threads.c.id]).where(threads.c.id == threadid)
+    tid = engine.execute(q).fetchone()
     return True if tid else False
 
 @with_db(slave)

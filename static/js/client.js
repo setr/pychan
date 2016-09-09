@@ -191,15 +191,15 @@ $(".control").click(function (){
         var board = location.pathname.split('/')[1]
         board = "/".concat(board)
         $(this).after(
-          $("<div>", {class: "postmenu"}).append(
-            $("<ul>", {class: "postmenulist"}).append(
+          //$("<div>", {class: "postmenu"}).append(
+            $("<ul>", {class: "popup-menu"}).append(
               c_postitem("url", "Hide Post").click(
                 function(e) { 
                   e.preventDefault(); 
                   add_hiddenpost(postid);
                   post.remove();}),
               c_postitem(board.concat("/delete"), "Delete Post", postid),
-              c_postitem(board.concat("/report"), "Report Post", postid))));
+              c_postitem(board.concat("/report"), "Report Post", postid)));//);
     } else {
         $(this).css("transform","" );
         // and now remove the dropdown menu
