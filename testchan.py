@@ -87,9 +87,7 @@ def adminonly(fn):
 
 @app.route('/<board>/upload', methods=['POST'])
 def newthread(board):
-    if db.is_locked(threadid):
-        return general_error('Thread is locked')
-    if 'image' not in request.files:
+    if 'image' not in request.files or request.files['image'].filename == '':
         return general_error('New threads must have an image')
     return _upload(board)
 
@@ -139,13 +137,13 @@ def _upload(board, threadid=None):
     """
     # read file and form data
     image     = request.files['image']
-    subject   = request.form.get('title'     , default= ''    , type= str).strip()
+    subject   = request.form.get('subject'   , default= ''    , type= str).strip()
     email     = request.form.get('email'     , default= ''    , type= str).strip()
     post      = request.form.get('body'      , default= ''    , type= str).strip()
     sage      = request.form.get('sage'      , default= False , type= bool)
     spoilered = request.form.get('spoilered' , default= False , type= bool)
     name      = request.form.get('name',
-                     default= 'Anonymous',
+                     default= '',
                      type= str).strip()
     password  = request.form.get('password',
                     default= "idc",
@@ -217,13 +215,16 @@ def index(board):
         page = 0
     if page > cfg.index_max_pages:
         return e404(None)
-    threads = db.fetch_page(board, page)
+    
+    boarddata = db.fetch_board_data(board)
+    if not boarddata:
+        return general_error('board does not exist')
 
-    board = db.fetch_board_data(board)
+    threads = db.fetch_page(board, page)
     hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
     return render_template('board_index.html',
             threads=threads,
-            board=board,
+            board=boarddata,
             counts=hidden_counts)
 
 @app.route('/<board>/<thread>/', methods=['GET'])

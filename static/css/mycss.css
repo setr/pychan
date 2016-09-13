@@ -14,7 +14,7 @@ article{
     height: 40px;
     margin: 0 0 -10px;
 }
-.replyname{
+.replyname, .replyemail, .threadsubject{
     background-color: rgba(0,0,0,0);
     color: #c5c8c6;
     border: none;

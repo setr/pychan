@@ -100,6 +100,8 @@
     </blockquote>
     {{ _replies(boardname, post.tails ) }}
     # if counts:
-        <span class="omit"> {{counts[0]}} replies and {{counts[1]}} images omitted </span>
+        {% set postcount = counts[0] %}
+        {% set imgcount = counts[1] if counts[1] else 0 %}
+        <span class="omit"> {{postcount}} replies and {{imgcount}} images omitted </span>
     # endif
 {%- endmacro %}

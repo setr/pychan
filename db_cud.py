@@ -242,11 +242,11 @@ def delete_thread(conn, threadid):
     # delete all posts for the thread
     #d_postq = posts.delete().where(posts.c.thread_id == threadid) 
     # get all posts in thread
-    postsq = select([posts.c.id]).where(posts.c.threadid == postid)
+    postsq = select([posts.c.id]).where(posts.c.thread_id == threadid)
     with transaction(conn):
         conn.execute(d_threadq) 
-        postlist = conn.execute(postq).fetchall()
-        postlist = [ p[0] for p in results ]
+        postlist = conn.execute(postsq).fetchall()
+        postlist = [ p[0] for p in postlist]
         map(lambda postid: delete_post(conn, postid), postlist)
 
 def delete_post(conn, postid):

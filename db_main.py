@@ -290,17 +290,25 @@ def count_hidden(thread_id, engine=None):
     # as that'll get us one file per post.
 
     excess = cfg.index_posts_per_thread + 1  # posts in thread - posts displayed - op_post (1)
-    limit_clause = select([ func.count(posts.c.id) - excess ]).\
-            where( posts.c.thread_id == thread_id ).as_scalar()
+
+    #limit_clause = select([ func.count(posts.c.id) - excess ]).\
+    #        where( posts.c.thread_id == thread_id ).as_scalar()
+    limit_clause = select ([func.count(posts.c.id)]).\
+                    where (posts.c.thread_id == thread_id)
+    limit = engine.execute(limit_clause).fetchone()[0]
+    limit = limit - excess
+    limit = 0 if limit < 0 else limit # no negative limits
+
     op_id = select([ threads.c.op_id ]).where( threads.c.id == thread_id ).as_scalar()
 
     relevant_posts = select([ posts.c.id.label('pid') ]).\
             where(and_( posts.c.id != op_id,
                         posts.c.thread_id == thread_id)).\
-            limit( limit_clause )
+            limit( limit )
     relevant_posts = relevant_posts.apply_labels()
 
     post_count = func.count(relevant_posts)
+
     file_count = select([ func.count(files.c.id) ]).\
                     select_from( files.join(relevant_posts) )
     final = select([post_count, file_count])
@@ -363,12 +371,15 @@ def fetch_page(board, pgnum=0, engine=None):
 
     pagedata = list()
     for thread in thread_data:
-        latest_posts = select([posts]).where(posts.c.thread_id == thread['id']).\
+        latest_posts = select([posts]).where(
+                                        and_(
+                                            posts.c.thread_id == thread['id'],
+                                            posts.c.id != thread['op_id'])).\
                                     order_by(desc(posts.c.id)).\
                                     limit( cfg.index_posts_per_thread)
 
-        posts_query = select([latest_posts]).order_by(asc("id"))
         op_query = select([posts]).where(posts.c.id == thread['op_id'])
+        posts_query = select([latest_posts]).order_by(asc("id"))
 
         op_result = engine.execute(op_query).fetchone()
         posts_result = engine.execute(posts_query).fetchall() 
@@ -388,6 +399,7 @@ def create_backrefs_for_thread(backreflist, engine=None):
     """
     with connection(engine) as conn:
         db_cud.create_backrefs_for_thread(conn, backreflist)
+
 @with_db(master)
 def create_backrefs(backrefs, engine=None):
     """

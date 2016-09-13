@@ -81,19 +81,41 @@ function createTrailer(article, replyform){
     return form;
 }
 
-
-function createarticle(replyform){
+function createformheader(isthread){
+    if (isthread) {
+        tclass = 'threadsubject';
+        tname = 'subject';
+        ttext = 'Subject';
+    } else {
+        tclass = 'replyemail';
+        tname = 'email';
+        ttext = 'Email';
+    }
+    var header = $("<header/>").append(
+                    $("<b>", {class: "name"}).append(
+                        $("<input>", 
+                            {type: 'text',
+                                class: 'replyname',
+                                maxlength: "20",
+                                name: 'name',
+                                placeholder: 'Anonymous'})),
+                    $("<b>", {class: "Email"}).append(
+                        $("<input>",
+                            {type: 'text',
+                                class: tclass,
+                                maxlength: "20",
+                                name: tname,
+                                placeholder: ttext}))
+                        );
+    return header;
+}
+    
+function createarticle(replyform, isthread){
     replyform.css("display", "none")
     //surrounding post-block for form
     var article = $("<article/>");
-    var header = $("<header/>").append(
-                    $("<b>", {class: "name"}).append(
-                    $("<input>", 
-                        {type: 'text',
-                         class: 'replyname',
-                         maxlength: "20",
-                         name: 'name',
-                         value: 'Anonymous'})));
+    var header = createformheader(isthread);
+
     var blockquote = $("<blockquote/>").append(
                         $("<p/>"),
                         $("<p/>"),
@@ -111,13 +133,23 @@ function createarticle(replyform){
                 blockquote,
                 small)
     article.append( form )
+
     return article; }
+
+// Inject New thread form on click
+$(".act.posting.board").each(function () {
+    // create form on clicking [Reply]
+    $(this).click(function() {
+        $(this).before(createarticle( $(this), true ));
+        $('html, body').scrollTop(0); // scroll to top 
+        });
+    });
 
 // Inject reply form on click
 $(".act.posting.thread").each(function () {
     // create form on clicking [Reply]
     $(this).click(function() {
-        $(this).before(createarticle( $(this) ));
+        $(this).before(createarticle( $(this), false ));
         $('html, body').scrollTop( $(document).height() ); // scroll to bottom, because the reply form gets hidden
         });
     });
@@ -181,8 +213,10 @@ function add_hiddenpost(postid){
     Cookies.set('hidden', curCookies, { expires: 10 });
 }
     
-
 $(".control").click(function (){ 
+    $('.popup-menu').remove();
+    $('.control').not(this).css('transform', '');
+
     if (  $( this ).css( "transform" ) == 'none' ){
         $(this).css("transform","rotate(90deg)");
         $(this).css("transition-duration", ".4s");
@@ -199,14 +233,21 @@ $(".control").click(function (){
                   e.preventDefault(); 
                   add_hiddenpost(postid);
                   post.remove();}),
-              c_postitem(board.concat("/delete"), "Delete Post", postid),
-              c_postitem(board.concat("/report"), "Report Post", postid)));//);
+              c_postitem(board.concat("/delete"), "Delete Post", postid)
+              //c_postitem(board.concat("/report"), "Report Post", postid)
+              ));//);
+        $('.popup-menu').hover(
+            function () {}, // do nothing on mouse enter
+            function () { $(this).remove(); $('.control').css('transform', '');}); // delete on mouse leave
+
     } else {
         $(this).css("transform","" );
         // and now remove the dropdown menu
-        $(this).next().remove();
+        //$('.popup-menu').remove();
+        //$(this).next().remove();
     }
 });
+
 
 });
 
