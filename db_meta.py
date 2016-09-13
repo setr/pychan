@@ -69,6 +69,7 @@ class DB():
                 Column('filename', String(20), nullable=False), # size of the hash we're saving with
                 Column('filetype', String(4), nullable=False),  # .pdf, .jpeg, etc
                 Column('spoilered', Boolean, nullable=False)) 
+
         self.backrefs = Table('backrefs', self.metadata,
                 Column('id'   , Integer , primary_key=True)     ,
                 Column('head' , Integer), # post being pointed to; 

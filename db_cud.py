@@ -240,16 +240,22 @@ def delete_thread(conn, threadid):
     # delete the thread itself
     d_threadq = threads.delete().where(threads.c.id == threadid) 
     # delete all posts for the thread
-    d_postq = posts.delete().where(posts.c.thread_id == threadid) 
+    #d_postq = posts.delete().where(posts.c.thread_id == threadid) 
+    # get all posts in thread
+    postsq = select([posts.c.id]).where(posts.c.threadid == postid)
     with transaction(conn):
         conn.execute(d_threadq) 
-        conn.execute(d_postq)
+        postlist = conn.execute(postq).fetchall()
+        postlist = [ p[0] for p in results ]
+        map(lambda postid: delete_post(conn, postid), postlist)
 
 def delete_post(conn, postid):
     """ the actual post deletion
         TODO: THIS NEEDS TO DELETE FILES TOO"""
-    d_backrefsq = backrefs.delete().where(backrefs.c.head == bindparam('postid'))
-    d_postq = posts.delete().where(posts.c.id == bindparam('postid'))
+    d_backrefsq = backrefs.delete().where(backrefs.c.head == postid)
+    d_postq = posts.delete().where(posts.c.id == postid)
+    d_imgq = files.delete().where(files.c.post_id == postid)
     with transaction(conn):
-        conn.execute( d_backrefsq, postid=postid)
-        conn.execute( d_postq, postid=postid)
+        conn.execute( d_backrefsq )
+        conn.execute( d_postq )
+        conn.execute( d_imgq )

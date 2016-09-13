@@ -110,16 +110,17 @@ def delpost(board):
         files = db.fetch_files_thread(postid)
     else:
         files = db.fetch_files(postid)
-    files = map(lambda x: x['filename'] + '.' + x['filetype'], files)
     
     error = db.delete_post(postid, password, ismod)
     if error:
         return general_error(error)
 
-    for filename in files:
+    for f in files:
         try:
-            mainfile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            thumbfile = os.path.join(app.config['THUMB_FOLDER'], filename)
+            main = f['filename'] + '.' + f['filetype']
+            thumb = f['filename'] + '.jpg'
+            mainfile = os.path.join(app.config['UPLOAD_FOLDER'], main)
+            thumbfile = os.path.join(app.config['THUMB_FOLDER'], thumb)
             os.remove(mainfile)
             os.remove(thumbfile)
         except OSError:
