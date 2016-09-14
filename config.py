@@ -39,5 +39,5 @@ op_exp_max_width    = 500
 post_exp_max_height = 300
 post_exp_max_width  = 300
 
-imagemagick_formats = ['jpg', 'png', 'gif', 'jpeg'] # allowed image types; must be supported by imagemagick
+imagemagick_formats = ['jpg', 'png', 'gif', 'jpeg', 'pdf'] # allowed image types; must be supported by imagemagick
 ffmpeg_formats      = ['webm']                           # allowed video types; must be supported by ffmpeg
