@@ -37,7 +37,10 @@
         {% for r in replylist %}
             {% set rid = r.tail %}
             {% set tid = r.thread_id %}
+
+            {% if rid %} {# if no rid, the backref was from a different board #}
             <a href="/{{boardname}}/{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
+            {% endif %}
         {% endfor %}
     </small>
 {%- endmacro %}

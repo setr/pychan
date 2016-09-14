@@ -1,10 +1,12 @@
 {% import 'macros/post_articles.html' as posts %}
 {% import 'macros/header.html' as headers %}
+{% import 'macros/banner.html' as banner %}
 <!DOCTYPE html>
 <html lang="en">
     {{ headers.header() }}
     <body>
-        <h1> <img> <!-- banner goes here --> </img> </h1>
+        {{ banner.banner() }}
+        <h1> <img> <!-- banner img goes here --> </img> </h1>
         <threads>
         {% set tit, stit = board.title, board.subtitle %}
            <h1> /{{tit}}/ - {{stit}} </h1>

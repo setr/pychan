@@ -9,11 +9,17 @@ article{
 .act:after{
     content: " ]";
 }
+
+#navTop::before { content: '[ ';}
+#navTop a:last-child::after { content: ' ]'; }
+#navTop a::after { content: ' / '; }
+
 #trans{
     max-width: 90%;
     height: 40px;
     margin: 0 0 -10px;
 }
+#options { margin-right: 1vw }
 .replyname, .replyemail, .threadsubject{
     background-color: rgba(0,0,0,0);
     color: #c5c8c6;

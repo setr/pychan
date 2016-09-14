@@ -9,6 +9,7 @@ import random, string
 import os
 import datetime
 
+from functools import wraps
 import hashlib
 
 app = Flask(__name__)
@@ -59,6 +60,7 @@ def assign_session_params():
 
 def checktime(fn):
     """ Decorator to make sure its been more than n time since last post """
+    @wraps(fn)
     def go(*args, **kwargs):
         now = datetime.datetime.utcnow()
         if 'lastpost' not in session:
@@ -78,6 +80,7 @@ def adminonly(fn):
     Checks if the user is currently a mod
     If not, redirect to modpage
     """
+    @wraps(fn)
     def go(*args, **kwargs):
         if 'mod' in session:
             return fn(*args, **kwargs)
@@ -85,26 +88,43 @@ def adminonly(fn):
             return general_error('You must be an admin to see this page'), # proper would be 401 Unauthorized
     return go
 
+def if_board_exists(fn):
+    """ Decorator
+    Only allow request to continue if the board in question actually exists
+    The function must be consuming a variable called board
+    """
+    @wraps(fn)
+    def go(*args, **kwargs):
+        boarddata = db.fetch_board_data(kwargs['board'])
+        if not boarddata:
+            return general_error('board does not exist')
+        else:
+            return fn(*args, **kwargs)
+    return go
+
 @app.route('/<board>/upload', methods=['POST'])
+@if_board_exists
 def newthread(board):
     if 'image' not in request.files or request.files['image'].filename == '':
         return general_error('New threads must have an image')
     return _upload(board)
 
 @app.route('/<board>/<int:threadid>/upload', methods=['POST'])
+@if_board_exists
 def newpost(board, threadid):
     if db.is_locked(threadid):
         return general_error('Thread is locked')
     return _upload(board, threadid)
 
 @app.route('/<board>/delete', methods=['POST'])
+@if_board_exists
 def delpost(board):
     fakeid = request.form.get('postid')
     password = request.form.get('password')
     url = request.form.get('url')
 
     ismod = 'mod' in session
-    if db._is_thread(postid):
+    if db._is_thread(board, postid):
         files = db.fetch_files_thread(postid)
     else:
         files = db.fetch_files(postid)
@@ -153,7 +173,7 @@ def _upload(board, threadid=None):
         return general_error('Cannot have an empty post') 
     if not gh._validate_post(post):
         return general_error('Spam/Robot detected')
-    if threadid and not db._is_thread(threadid):
+    if threadid and not db._is_thread(board, threadid):
         return general_error('Specified thread does not exist')
 
     # and now we start saving the post
@@ -194,7 +214,7 @@ def _upload(board, threadid=None):
     # If they reference the pid we _just_ created, then we'll have to 
     # reparse those old posts.
     db.mark_dirtyclean(pid, True) # assume dirty unless proven clean
-    db.reparse_dirty_posts(board, pid)
+    db.reparse_dirty_posts(board, pid, fpid)
 
     return redirect(url_for('thread', board=board, thread=threadid, _anchor=fpid))
 
@@ -206,6 +226,7 @@ def root():
 @app.route('/<board>', methods=['GET'])
 @app.route('/<board>/', methods=['GET'])
 @app.route('/<board>/index.html', methods=['GET'])
+@if_board_exists
 def index(board):
     page = request.args.get('page', 0)
     try:
@@ -227,10 +248,11 @@ def index(board):
             counts=hidden_counts)
 
 @app.route('/<board>/<thread>/', methods=['GET'])
+@if_board_exists
 def thread(board, thread):
-    if not db._is_thread(thread):
+    if not db._is_thread(board, thread):
         return general_error('Specified thread does not exist')
-    thread_data = db.fetch_thread(thread)
+    thread_data = db.fetch_thread(board, thread)
     board_data = db.fetch_board_data(board)
     return render_template('thread.html',
             thread=thread_data,

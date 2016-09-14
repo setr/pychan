@@ -138,9 +138,10 @@ def fetch_board_data(title, engine=None):
     return engine.execute(q).fetchone()
 
 @with_db(slave)
-def fetch_thread(threadid, engine=None):
+def fetch_thread(boardname, threadid, engine=None):
     """ gets all the posts for a single thread
         Args:
+            board (str): name of the board
             threadid (int): id of thread
         Returns:
             list: the original post, followed by every other post in order of id
@@ -151,7 +152,7 @@ def fetch_thread(threadid, engine=None):
                   order_by(asc(posts.c.id))
 
     posts_result = engine.execute(posts_query).fetchall() 
-    post_list = inject(posts_result)
+    post_list = inject_backrefs(boardname, posts_result)
     for p in post_list:
         p['h_time'] = _rel_timestamp(p['timestamp'])
     return post_list
@@ -184,13 +185,15 @@ def _rel_timestamp(timestamp):
         ts = ts.format(0, 'seconds')
     return ts
 
-def parse_post(board, post, post_id=None):
+def parse_post(board, post, post_id=None, fpid=None):
     """ injects all our html formatters and adds any backrefs found to the db
     should only be used on post creation, or if the post was future-referencing
     if the post future-references, it marks the post as dirty (for future reparsing)
         Args:
+            board (str): name of the board title
             post (str): the full content of the post
             post_id (int): If this an update, then we need the post being updated. This should be the global pid
+            fpid (int): the board-local id of the post (shown to the user)
         Returns:
             str: the post with all our new html injected; HTML-safe
     """
@@ -211,7 +214,7 @@ def parse_post(board, post, post_id=None):
     f_imply= re.compile(f_imply, re.MULTILINE) 
 
     # what they turn into
-    backref = '<a href="{tid}#{pid}" class="history">>>{pid}</a>{space}'
+    backref = '<a href="/{board}/{tid}#{pid}" class="history">>>{pid}</a>{space}'
     spoiler = '<del class> {} </del>'
     implying = '<em> {} </em>'
 
@@ -222,16 +225,15 @@ def parse_post(board, post, post_id=None):
         pid = _get_realpostid(board, fake_pid) # so we need to first get the global pid, for backreferencing
         # preserves following whitespace; particularly \n
         space = match.group(2) if match.group(2) else ""
-        print(post_id, fake_pid)
         if pid: # if no real_pid, the post doesn't exist.
             tid = _fetch_thread_of_post(pid)
             addrefs.append(pid)
-            return backref.format(tid=tid, pid=fake_pid, space=space)
+            return backref.format(board=board, tid=tid, pid=fake_pid, space=space)
         else:
             # if the post does not exist currently
             # and is not a post from the future
             # it must be from the past, and thus never linkable.
-            if post_id and fake_pid < post_id: 
+            if post_id and fake_pid < fpid: 
                 isdirty = True
             return ">>{}{}".format(fake_pid, space) # so it doesn't get read by other regex's
     r_imply = lambda match: implying.format(match.group(0))
@@ -239,14 +241,11 @@ def parse_post(board, post, post_id=None):
 
     post = escape(post) # escape the thing, before we do any regexing on it
     post = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in post.splitlines()])
-    post = re.sub(f_ref, r_ref, post)      # post-references must occur before imply (>>num)
-    post = re.sub(f_spoil, r_spoil, post)  # spoiler must occur before imply (>< text ><)
-    post = re.sub(f_imply, r_imply, post)  # since is looking for a subset  (>text)
-    post = re.sub('\n', '\n<br>\n', post)
+    post = re.sub(f_ref   , r_ref      , post)      # post-references must occur before imply (>>num)
+    post = re.sub(f_spoil , r_spoil    , post)  # spoiler must occur before imply (>< text ><)
+    post = re.sub(f_imply , r_imply    , post)  # since its looking for a subset  (>text)
+    post = re.sub('\n'    , '\n<br>\n' , post)
     
-    print("updating")
-    print(post_id)
-    print(isdirty)
     if post_id:
         mark_dirtyclean(post_id, isdirty)
         update_post_parsed(post, post_id) # store the parsed version in the db
@@ -256,18 +255,28 @@ def parse_post(board, post, post_id=None):
 
 @with_db(master)
 def update_post_parsed(post, post_id, engine=None):
+    """ adds the parsed body of the post to the post id
+        Args:
+            post (str): the parsed/escaped body of the post
+            post_id (int): global id of the post
+    """
     with connection(engine) as conn:
         db_cud.update_post_parsed(conn, post, post_id)
 
 @with_db(master)
 def mark_dirtyclean(postid, isdirty, engine=None):
+    """ sets the dirty flag.
+        Args:
+            postid (int): global id of the post
+            isdirty (bool): should be reparsed in the future, or not
+    """
     with connection(engine) as conn:
         db_cud.mark_dirtyclean(conn, postid, isdirty)
 
 def fetch_backrefs(postid, engine):
     """ Gets the list of all posts pointing to a given post
         Args:
-            postid (int): id of the post in question
+            postid (int): global id of the post in question
         Returns:
             List(ResultProxy): [{backrefs.tail, posts.thread_id}]
     """
@@ -280,6 +289,12 @@ def fetch_backrefs(postid, engine):
 
 @with_db(slave)
 def fetch_files(postid, engine=None):
+    """ fetches all the files associated with a post
+        Args:
+            postid (int): global id of the post
+        Returns:
+            List(ResultProxy): [{filename, filetype, spoilered}]
+    """
     q = select([files.c.filename, files.c.filetype, files.c.spoilered]).where(files.c.post_id == postid).order_by(files.c.post_id)
     return engine.execute(q).fetchall()
 
@@ -336,7 +351,7 @@ def count_hidden(thread_id, engine=None):
     return engine.execute(final).fetchone()
 
 
-def inject(posts_result):
+def inject_backrefs(boardname, posts_result):
     """ For handling any injection of stuff the post lists require.
     list of backrefs
     list of files
@@ -350,17 +365,30 @@ def inject(posts_result):
     for p in posts_result:
         p = dict(p.items())
         p['tails'] = fetch_backrefs(p['id'])
+        p['tails'] = [ {'tail': get_fakeid(boardname, t[0])[0],
+                        'thread_id': t[1]} for t in p['tails']]
+
         p['files'] = fetch_files(p['id'])
         done.append(p)
     return done
 
+@with_db(master)
+def get_fakeid(boardname, pid, engine=None):
+    boardid = select([boards.c.id]).where(boards.c.title == boardname).as_scalar()
+    threadlist = select([threads.c.id]).where(threads.c.board_id == boardid)
+    fakeid = select([posts.c.fake_id]).\
+                where(and_(
+                    posts.c.id == pid,
+                    posts.c.thread_id.in_( threadlist)))
+    return engine.execute( fakeid ).fetchone()
+
 @with_db(slave)
-def fetch_page(board, pgnum=0, engine=None):
+def fetch_page(boardname, pgnum=0, engine=None):
     """ Generates the latest index
     Get threads (pgnum * thread_count) to ((pgnum+1) * thread_count) threads, ordered by the latest post in the thread
     Get the last 5 posts for those threads
         Args:
-            board (str): board title
+            boardname (str): board title
             pgnum (Optional[int]): page number (default: 0)
         Returns:
             Array: [ (op_post, post1, post2, ..)
@@ -371,7 +399,7 @@ def fetch_page(board, pgnum=0, engine=None):
     # ignoring saged posts
     offset = pgnum * cfg.index_threads_per_page # threads to display
 
-    board_id = select([boards.c.id]).where(boards.c.title == board).as_scalar()
+    board_id = select([boards.c.id]).where(boards.c.title == boardname).as_scalar()
     latest_postid = select([func.max(posts.c.id)]).\
                         where(and_(
                             posts.c.thread_id == text('threads.id'),
@@ -404,7 +432,7 @@ def fetch_page(board, pgnum=0, engine=None):
         op_result = engine.execute(op_query).fetchone()
         posts_result = engine.execute(posts_query).fetchall() 
         posts_result.insert(0, op_result)
-        post_list = inject(posts_result)
+        post_list = inject_backrefs(boardname, posts_result)
         for p in post_list:
             p['h_time'] = _rel_timestamp(p['timestamp'])
         pagedata.append(post_list)
@@ -538,9 +566,12 @@ def _fetch_threadid(opid, engine=None):
     return tid['id'] if tid else None
 
 @with_db(slave)
-def _is_thread(threadid, engine=None):
+def _is_thread(boardname, threadid, engine=None):
     """ given the threadid, see if the thread exists"""
-    q = select([threads.c.id]).where(threads.c.id == threadid)
+    bq = select([boards.c.id]).where(boards.c.title == boardname).as_scalar()
+    q = select([threads.c.id]).where(and_(
+                                threads.c.id == threadid,
+                                threads.c.board_id == bq))
     tid = engine.execute(q).fetchone()
     return True if tid else False
 
@@ -552,14 +583,14 @@ def validate_mod(username, password, engine=None):
     return bcrypt.hashpw(password, hashed) == hashed
 
 @with_db(slave)
-def reparse_dirty_posts(board, post_id, engine=None):
+def reparse_dirty_posts(board, post_id, fpid, engine=None):
     """ reparses any posts marked as dirty; referencing not-yet-existing posts
         Args:
             post_id: id of the post being created
     """
     dirty = select([posts.c.body, posts.c.id]).where(posts.c.dirty == True)
     for body, pid in engine.execute(dirty).fetchall():
-        parse_post(board, body, pid)
+        parse_post(board, body, pid, fpid)
 
 @with_db(slave)
 def _get_realpostid(board, fakeid, engine=None):
