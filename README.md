@@ -60,8 +60,17 @@ then go to localhost:5000
        - Or it needs to not exist, and only a [ New Thread ] button **Currently This**
 - [x] Index needs to 404 if you try to go to a page that cannot exist (exceeds index_max_pages)
        - An empty page if pagenum is valid, but there simply aren't that many threads in existence (which it currently does)
-- [ ] [ New Thread ] runs on [ New Reply ] JS. Pretty sure I don't like this.
-- [ ] Deleting a post currently does not delete associated file(s), if any
+- [x] [ New Thread ] runs on [ New Reply ] JS. Pretty sure I don't like this.
+- [x] Deleting a post currently does not delete associated file(s), if any
+
+### Styling
+- [ ] Meguca header
+       - [ ] the header itself + icons     
+       - [ ] Meguca header options
+       - [ ] banner image
+- [ ] CSS theme switching
+- [ ] Test Meguca CSS beyond ashita
+- [ ] Need to make thread distinction more clear on index pages
 
 ### Client-Side Viewing
 - [x] Hide posts (JS)
@@ -88,34 +97,39 @@ then go to localhost:5000
        - [x] body + file can POST 
        - [ ] additional fields can POST (name, sage, spoiler, etc)
               - [x] name
+              - [x] email
               - [ ] sage
               - [ ] spoiler
-              - [ ] thread-title
-- [ ] New Thread vs New Reply distinction (JS)
+              - [x] thread-title
+- [x] New Thread vs New Reply distinction (JS)
 
 ### IMAGES
 - [x] Filename on server => hash.filetype
 - [x] Fail on duplicate file upload
 - [ ] Generate and link to thumbnails
-       - Need to look into this. Might be complex for getting them out of webms
-       - webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault.
+       - [x] image thumbnail
+       - [x] webm thumbnail
+       - [ ] spoiler thumbnail
+       - [x] webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault. ** works fine on nginx **
        - [ ] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
 - [ ] Full image on hover (JS)
        - Shouldn't apply to webms (it's annoying)
        - Shouldn't apply to PDFs
 - [ ] Inline expansion (JS)
        - [x] Image Inlined
-       - [ ] Webm Inlined
+       - [x] Webm Inlined
        - [x] PDF should not inline. Just target="_blank"
-- [ ] Thumbnails for webms
 - [ ] Spoiler
+       - thumbnail points to spoiler.jpg, and the flag in the db is there. No button to set it when posting though.
+- [ ] Youtube embed
+       - probably want this to be in the image section 
 
 ### BODY TEXT
 - [x] Either move styling injection to client-side (JS) or save the parsed body-text to the db (PYTHON)
        -  Moved it to server side, storing both parsed and original text. Parses once on create, and if that thread future-referenced (replied to a post that does not yet exist), it reparses the post when that thread does exist.
        -  Can also probably add a cli function to reparse all posts, if you change up the regex or something.
 - [ ] \>>0123021 (you) (JS)
-       - [ ] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
+       - [x] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
             - It turns out session objects are read-only client-side, which is sufficient
             - Currently this is implemented, but from python's parsing
        - [ ] Detect ownership and inject ::after
@@ -124,7 +138,7 @@ then go to localhost:5000
 - [ ] Auto-update threads (JS/AJAX)
 
 ### MODS
-- [x] Login check on specific page
+- [x] Login check on specific pages
 - [x] Store login success in session cookie
 - [ ] An actual login page
 - [ ] Administration page (clear bans, clear cache, etc)
@@ -150,13 +164,15 @@ then go to localhost:5000
        - and the entry points always spawning them
 - [ ] Give files proper names (ie not testchan)
 - [ ] Write some actual fucking unit tests
-- [ ] _upload is getting way too complex; break it up and simplify conditional-routing
+- [x] _upload is getting way too complex; break it up and simplify conditional-routing
 
 ### DOCS
 - [ ] Most of the functions have Napolean-Sphinx compatatible docstrings, but we still need to start generating them
 
 ### MAYBE
 - [ ] Converter script from meguca-css to ours
+       - in the form of loading meguca-css, then pasting ours on top
+       - pychan-modified css in mycss.css
 - [ ] Add multi-image support (this seems like it'll be annoying to add) (SQL/PYTHON)
        - I believe most of the support for this is now complete, with everything now assuming theres a list of files
        - However, I have no real idea how to add multi-image support on the frontend side, without declaring #id1 #id2 #id3 boxes, and then looking through all of them. Which is do-able, but seems pretty stupid. Ideally, it should just reach flask as a generic list of files to operate on. 
