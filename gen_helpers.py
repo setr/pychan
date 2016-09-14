@@ -33,6 +33,7 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
                                     # First frame of static image = the image.
         if ext == 'pdf':
             command = ['/usr/bin/convert'      , mainpath ,
+            #command = ['convert'      , mainpath ,
                         '-thumbnail'  , size     ,
                         '-background' , 'white'  ,
                         '-alpha'      , 'remove' ,
@@ -54,4 +55,5 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
                 thumbpath]
     # there should be no other valid exts
     # we're assumming success
+    print(command)
     subprocess.run(command)
