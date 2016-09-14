@@ -44,6 +44,7 @@ class DB():
                 Column('subtitle'    , Text          , nullable=False),
                 Column('slogan'      , Text),
                 Column('active'      , Boolean       , default=True))
+
         self.threads = Table('threads', self.metadata,
                 Column('id'                 , Integer   , primary_key=True),
                 Column('board_id'           , Integer   , ForeignKey("boards.id" , **cascade)),
@@ -52,8 +53,10 @@ class DB():
                 Column('locked'             , Boolean   , default=False), # Mod-Locked?
                 Column('sticky'             , Boolean   , default=True),
                 UniqueConstraint('board_id' , 'op_id'))
+
         self.posts = Table('posts', self.metadata,
                 Column('id'        , Integer        , primary_key=True), #sqlite_autoincrement=True) ,
+                Column('fake_id'   , Integer), 
                 Column('thread_id' , Integer        , ForeignKey("threads.id", **cascade)),
                 Column('sage'      , Boolean)       ,
                 Column('name'      , String(30)),
@@ -61,8 +64,10 @@ class DB():
                 Column('subject'   , String(50)),
                 Column('body'      , String(cfg.post_max_length) , nullable=False),
                 Column('parsed'    , Text),
+                Column('dirty'     , Boolean)       , # a dirty post references a non-existent post #
                 Column('password'  , String(60)                     , nullable=False), # bcrypt output
                 Column('timestamp' , DateTime                       , default=datetime.datetime.utcnow))
+
         self.files = Table('files', self.metadata,
                 Column('id', Integer, primary_key=True),
                 Column('post_id', Integer, ForeignKey("posts.id", **cascade)),

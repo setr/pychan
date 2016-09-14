@@ -86,24 +86,26 @@ function createformheader(isthread){
         tclass = 'threadsubject';
         tname = 'subject';
         ttext = 'Subject';
+        tlength = '50';
     } else {
         tclass = 'replyemail';
         tname = 'email';
         ttext = 'Email';
+        tlength = '30';
     }
     var header = $("<header/>").append(
                     $("<b>", {class: "name"}).append(
                         $("<input>", 
                             {type: 'text',
                                 class: 'replyname',
-                                maxlength: "20",
+                                maxlength: "30",
                                 name: 'name',
                                 placeholder: 'Anonymous'})),
                     $("<b>", {class: "Email"}).append(
                         $("<input>",
                             {type: 'text',
                                 class: tclass,
-                                maxlength: "20",
+                                maxlength: tlength,
                                 name: tname,
                                 placeholder: ttext}))
                         );

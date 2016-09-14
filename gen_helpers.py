@@ -32,14 +32,15 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
         mainpath = mainpath + '[0]' # [0] gets page0 from the file. 
                                     # First frame of static image = the image.
         if ext == 'pdf':
-            command = ['/usr/bin/convert'      , mainpath ,
-            #command = ['convert'      , mainpath ,
+            #command = ['/usr/bin/convert'      , mainpath ,
+            command = ['convert'      , mainpath ,
                         '-thumbnail'  , size     ,
                         '-background' , 'white'  ,
                         '-alpha'      , 'remove' ,
                         thumbpath]
         else:
-            command = ['/usr/bin/convert'     , mainpath ,
+            #command = ['/usr/bin/convert'      , mainpath ,
+            command = ['convert'     , mainpath ,
                         '-thumbnail' , size     ,
                         '-format'    , 'jpg'    ,
                         thumbpath]

@@ -51,13 +51,14 @@ def transaction(conn):
     else:
         trans.commit()
 
-def create_post(conn, thread, filedatas, body, parsed, password, name='', email='', subject='',  sage=False):
+def create_post(conn, boardname, threadid, filedatas, body, parsed, password, name='', email='', subject='',  sage=False):
     """ Submits a new post, without value validation
     However, it does check if the post should be forced-sage
         Either due to exceeding thread post limit
         or because a mod has killed the thread (thread.alive = false)
     
         Args:
+            boardname (str): board title
             thread (int): thread id
             filename (str): filename, on disk (path is implied by config'd dir)
             body (str): unparsed body text
@@ -67,9 +68,10 @@ def create_post(conn, thread, filedatas, body, parsed, password, name='', email=
             sage (Optional[bool])): sage post?
         Returns:
             int: post_id
+            int: fake_id
     """
     postdata = {
-        'thread_id':thread,
+        'thread_id':threadid,
         'name':name,
         'email':email,
         'subject':subject,
@@ -81,23 +83,34 @@ def create_post(conn, thread, filedatas, body, parsed, password, name='', email=
     filesquery = files.insert()
 
     password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == thread)
-    talive =  select([threads.c.alive]).where(threads.c.id == thread)
-
+    postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == threadid)
+    talive =  select([threads.c.alive]).where(threads.c.id == threadid)
     with transaction(conn):
+        # in order to have a post-id index local to the board
+        # we have to maintain it ourselves. So the fake_id for the post, that shown to the user
+        # is the total posts in the board + 1
+        boardid = conn.execute(select([boards.c.id]).\
+                    where(boards.c.title == boardname)).fetchone()['id']
+        threadlist = select([threads.c.id]).where(
+                        threads.c.board_id == boardid)
+        board_countq = select([func.count(posts)]).where(
+                        posts.c.thread_id.in_( threadlist ))
+        board_count = conn.execute( board_countq ).fetchone()[0]
+
         count = conn.execute(postcount).fetchone()[0]
         isalive = conn.execute(talive).fetchone()[0]
 
         fsage = (count > cfg.thread_max_posts) or (not isalive)
         if fsage: #forced saged
             postdata['sage'] = fsage
+        postdata['fake_id'] = board_count + 1
 
         post_id = conn.execute(postquery, postdata).inserted_primary_key[0]
         if filedatas: # list of empty dictionary
             for f in filedatas:
                 f['post_id'] = post_id
             conn.execute(filesquery, filedatas)
-    return post_id
+    return post_id, postdata['fake_id']
 
 def cleanup_threads(boardname, conn=None):
     """ runs through and deletes any thread that has fallen off the board 
@@ -112,7 +125,7 @@ def cleanup_threads(boardname, conn=None):
     # subquery gets the latest N threads, that aren't on 
     # anything after that has fallen off the board
     query ="""
-        DELETE FROM threads WHERE threads.id not in (
+        SELECT threads.id FROM threads WHERE threads.id not in (
             SELECT threads.id FROM threads
             JOIN posts
             ON threads.id = posts.thread_id
@@ -126,10 +139,6 @@ def cleanup_threads(boardname, conn=None):
             ORDER BY posts.id DESC
             LIMIT :thread_max)
     """
-    # for any post, if the parent thread is gone, then obviously the post should go with it
-    pquery =""" 
-        DELETE FROM posts WHERE posts.thread_id in (select threads.id from threads)
-        """
  
     thread_max = cfg.index_max_pages * cfg.index_threads_per_page
     data = {'board_title' : boardname,
@@ -139,8 +148,10 @@ def cleanup_threads(boardname, conn=None):
 
     success = False
     with transaction(conn):
-        conn.execute(query, data)
-        conn.execute(pquery)
+        threadids = conn.execute(query, data).fetchall()
+        threadids = [tid[0] for tid in threadids]
+        for tid in threadids:
+            delete_thread(conn, tid)
         success = True
     return success
 
@@ -165,6 +176,7 @@ def create_thread(conn, boardname, filedatas, body, parsed, password, name, emai
         Returns:
             int: thread_id; None if it failed
             int: post_id
+            int: fakeid; id shown to user, local to the board
     """
     # get the board id
     # make a new thread
@@ -179,7 +191,7 @@ def create_thread(conn, boardname, filedatas, body, parsed, password, name, emai
                      board_id= boardid, 
                      alive=true,
                      sticky=true)).inserted_primary_key[0]
-        postid = create_post(conn, 
+        postid,fakeid = create_post(conn, boardname,
                     threadid, filedatas, 
                     body, parsed,
                     password, name, 
@@ -188,7 +200,7 @@ def create_thread(conn, boardname, filedatas, body, parsed, password, name, emai
                 where(threads.c.id == threadid).\
                 values(op_id= postid))
         #cleanup_threads(conn, boardname)
-    return threadid, postid
+    return threadid, postid, fakeid
 
 def create_board(conn, title, subtitle, slogan, active=True):
     """ Creates a new board (multiple new tables)
@@ -207,17 +219,17 @@ def create_board(conn, title, subtitle, slogan, active=True):
         boardid = conn.execute(query).inserted_primary_key[0]
     return boardid
 
-def create_backrefs(conn, brefs):
-    query = backrefs.insert().prefix_with("OR REPLACE")
-    tail = brefs[0]
-    heads = brefs[1]
-    data = [{ "head": head,
-                "tail": tail}
-                for head in heads]
-    with transaction(conn):
-        conn.execute(query, data)
+#def create_backrefs(conn, brefs):
+#    query = backrefs.insert().prefix_with("OR REPLACE")
+#    tail = brefs[0]
+#    heads = brefs[1]
+#    data = [{ "head": head,
+#                "tail": tail}
+#                for head in heads]
+#    with transaction(conn):
+#        conn.execute(query, data)
 
-def create_backrefs_for_thread(conn, backreflist):
+def create_backrefs(conn, backreflist):
     with transaction(conn):
         query = backrefs.insert().prefix_with("OR REPLACE")
         for b in backreflist:
@@ -232,10 +244,13 @@ def update_post_parsed(conn, parsed, postid):
     with transaction(conn):
         query = posts.update().where(posts.c.id == postid).values(parsed=parsed)
         conn.execute(query)
+def mark_dirtyclean(conn, postid, isdirty):
+    with transaction(conn):
+        query = posts.update().where(posts.c.id == postid).values(dirty= isdirty)
+        conn.execute(query)
     
 def delete_thread(conn, threadid):
-    """ wipe out a whole thread 
-        THIS SHOULD BE CALLING delete_post"""
+    """ wipe out a whole thread """
 
     # delete the thread itself
     d_threadq = threads.delete().where(threads.c.id == threadid) 

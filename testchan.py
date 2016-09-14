@@ -99,7 +99,7 @@ def newpost(board, threadid):
 
 @app.route('/<board>/delete', methods=['POST'])
 def delpost(board):
-    postid = request.form.get('postid')
+    fakeid = request.form.get('postid')
     password = request.form.get('password')
     url = request.form.get('url')
 
@@ -109,7 +109,7 @@ def delpost(board):
     else:
         files = db.fetch_files(postid)
     
-    error = db.delete_post(postid, password, ismod)
+    error = db.delete_post(board, postid, password, ismod)
     if error:
         return general_error(error)
 
@@ -184,20 +184,19 @@ def _upload(board, threadid=None):
         files.append(filedict)
 
     # drop it into the DB
-    parsed_body, reflist = db.parse_post(post)
+    #parsed_body, reflist = db.parse_post(board, post)
     if isop: 
-        threadid, pid = db.create_thread(board, files, post, parsed_body, password, name, email, subject)
+        threadid, pid, fpid = db.create_thread(board, files, post, password, name, email, subject)
     else:
-        pid = db.create_post(threadid, files, post, parsed_body, password, name, email, subject, sage)
-    if reflist:
-        db.create_backrefs((pid,reflist))
+        pid, fpid = db.create_post(board, threadid, files, post, password, name, email, subject, sage)
+
     # Special case: posts may >>pid posts that do not actually exist yet. 
     # If they reference the pid we _just_ created, then we'll have to 
     # reparse those old posts.
-    db._check_backref_preexistence(pid)
-    session['myposts'].append(pid) # assign the post to the user, for (You) [JS]
-    session.modified = True # necessary to actually save the session change
-    return redirect(url_for('thread', board=board, thread=threadid, _anchor=pid))
+    db.mark_dirtyclean(pid, True) # assume dirty unless proven clean
+    db.reparse_dirty_posts(board, pid)
+
+    return redirect(url_for('thread', board=board, thread=threadid, _anchor=fpid))
 
 
 @app.route('/', methods=['GET'])

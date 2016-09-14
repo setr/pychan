@@ -63,13 +63,13 @@ def with_db(target):
     return wrap
     
 @with_db(master)
-def delete_post(postid, password, ismod=False, engine=None):
-    """ Validates that the user can delete the post, then deletes it
+def delete_post(board, postid, password, ismod=False, engine=None):
+    """ Validates that the user can delete the post, then deletes it.
         If the post is the op, the whole thread will be deleted as well.
 
         Args:
-            postid (int): id of post to be deleted
-            password (str): plaintext password for the user (auto-gen'd), should have been stored in the cookie
+            postid (int): id of post to be deleted (the local-postid shown to the user)
+            password (str): plaintext password for the post
             ismod (bool): is this a validated mod?
         Returns:
             error: None if worked, error-string if failed
@@ -77,16 +77,13 @@ def delete_post(postid, password, ismod=False, engine=None):
     candel = False 
     done = False
     #password = password.encode('utf-8')
+    postid = _get_realpostid(board, postid)
     if not ismod:
         query = select([posts.c.password]).where(posts.c.id == postid)
         hashed = engine.execute(query).fetchone()['password']
         #candel = bcrypt.hashpw(password, hashed) == hashed
         # we aren't actually hashing post-passwords
         candel = password == hashed
-        print (postid)
-        print ( password )
-        print ( hashed )
-        print ( candel )
     else:
         candel = True
 
@@ -100,8 +97,9 @@ def delete_post(postid, password, ismod=False, engine=None):
         return None
     else:
         return "incorrect password"
+
 @with_db(master)
-def create_post(thread, filedatas, body, parsed, password, name='', email='', subject='', sage=False, engine=None):
+def create_post(boardname, thread, filedatas, body, password, name='', email='', subject='', sage=False, engine=None):
     """ Submits a new thread, without value checking. 
         Args:
             thread (int): thread_id
@@ -118,8 +116,14 @@ def create_post(thread, filedatas, body, parsed, password, name='', email='', su
             int: post_id
     """
     with connection(engine) as conn:
-        pid = db_cud.create_post(conn, thread, filedatas, body, parsed, password, name, email, subject, sage)
-    return pid
+        parsed = parse_post(boardname, body)
+        pid, fpid = db_cud.create_post(conn, boardname,
+                                        thread, filedatas, 
+                                        body, parsed, 
+                                        password, name, 
+                                        email, subject, 
+                                        sage)
+    return pid, fpid
 
 
 @with_db(slave)
@@ -180,15 +184,15 @@ def _rel_timestamp(timestamp):
         ts = ts.format(0, 'seconds')
     return ts
 
-def parse_post(post, post_id=None):
+def parse_post(board, post, post_id=None):
     """ injects all our html formatters and adds any backrefs found to the db
     should only be used on post creation, or if the post was future-referencing
+    if the post future-references, it marks the post as dirty (for future reparsing)
         Args:
             post (str): the full content of the post
-            post_id (int): If this an update, then we need the post being updated.
+            post_id (int): If this an update, then we need the post being updated. This should be the global pid
         Returns:
             str: the post with all our new html injected; HTML-safe
-            list: all post ids being referred to, for backref creation
     """
     # we need to parse out the pids
     # then form the html for it
@@ -212,17 +216,24 @@ def parse_post(post, post_id=None):
     implying = '<em> {} </em>'
 
     addrefs = list()
+    isdirty = False
     def r_ref(match):
-        pid = int(match.group(1))
+        fake_pid = int(match.group(1)) # this pid is _fake_; it's number is contextually specific to the board
+        pid = _get_realpostid(board, fake_pid) # so we need to first get the global pid, for backreferencing
         # preserves following whitespace; particularly \n
         space = match.group(2) if match.group(2) else ""
-        tid = _fetch_thread_of_post(pid)
-        addrefs.append(pid) # we still want to create the backref even if the post doesn't exist
-                            # so you can do future-referencing. Just don't link it yet.
-        if tid: # if no tid, then the post must not exist.
-            return backref.format(tid=tid, pid=pid, space=space)
+        print(post_id, fake_pid)
+        if pid: # if no real_pid, the post doesn't exist.
+            tid = _fetch_thread_of_post(pid)
+            addrefs.append(pid)
+            return backref.format(tid=tid, pid=fake_pid, space=space)
         else:
-            return ">>{}{}".format(pid, space) # so it doesn't get read by other regex's
+            # if the post does not exist currently
+            # and is not a post from the future
+            # it must be from the past, and thus never linkable.
+            if post_id and fake_pid < post_id: 
+                isdirty = True
+            return ">>{}{}".format(fake_pid, space) # so it doesn't get read by other regex's
     r_imply = lambda match: implying.format(match.group(0))
     r_spoil = lambda match: spoiler.format(match.group(1))
 
@@ -232,16 +243,26 @@ def parse_post(post, post_id=None):
     post = re.sub(f_spoil, r_spoil, post)  # spoiler must occur before imply (>< text ><)
     post = re.sub(f_imply, r_imply, post)  # since is looking for a subset  (>text)
     post = re.sub('\n', '\n<br>\n', post)
+    
+    print("updating")
+    print(post_id)
+    print(isdirty)
     if post_id:
+        mark_dirtyclean(post_id, isdirty)
         update_post_parsed(post, post_id) # store the parsed version in the db
         create_backrefs((post_id, addrefs)) # add our new references to the db
     # and we finally return an HTML-safe version of the post, with our stylings injected.
-    return post, addrefs
+    return post
 
 @with_db(master)
 def update_post_parsed(post, post_id, engine=None):
     with connection(engine) as conn:
         db_cud.update_post_parsed(conn, post, post_id)
+
+@with_db(master)
+def mark_dirtyclean(postid, isdirty, engine=None):
+    with connection(engine) as conn:
+        db_cud.mark_dirtyclean(conn, postid, isdirty)
 
 def fetch_backrefs(postid, engine):
     """ Gets the list of all posts pointing to a given post
@@ -333,7 +354,6 @@ def inject(posts_result):
         done.append(p)
     return done
 
-
 @with_db(slave)
 def fetch_page(board, pgnum=0, engine=None):
     """ Generates the latest index
@@ -347,7 +367,7 @@ def fetch_page(board, pgnum=0, engine=None):
                         (op_post, post1, post2, ..)
                         (etc)]
     """
-    # gets the last 10 threads with the latest posts, and their op_ids
+    # gets the last n threads with the latest posts, and their op_ids
     # ignoring saged posts
     offset = pgnum * cfg.index_threads_per_page # threads to display
 
@@ -364,7 +384,7 @@ def fetch_page(board, pgnum=0, engine=None):
                 posts.c.id == latest_postid)).\
             group_by(threads.c.id).\
             order_by(desc(posts.c.id)).\
-            limit( 10 ).\
+            limit( cfg.index_threads_per_page ).\
             offset( offset )
     thread_data = engine.execute(latest_threads_query)
 
@@ -409,7 +429,7 @@ def create_backrefs(backrefs, engine=None):
                 2. [ list of postid being referred to ]
     """
     with connection(engine) as conn:
-        db_cud.create_backrefs(conn, backrefs)
+        db_cud.create_backrefs(conn, [backrefs])
 
 @with_db(slave)
 def fetch_backrefs(postid, engine):
@@ -435,7 +455,7 @@ def mark_thread_autosage(threadid, engine=None):
     return True
     
 @with_db(master)
-def create_thread(boardname, filedatas, body, parsed, password, name='', email='', subject='', engine=None):
+def create_thread(boardname, filedatas, body, password, name='', email='', subject='', engine=None):
     """ Submits a new thread, without value checking. 
         Args:
             board (str): board name
@@ -452,12 +472,14 @@ def create_thread(boardname, filedatas, body, parsed, password, name='', email='
             int: post_id
     """
     with connection(engine) as conn:
-        threadid, postid = db_cud.create_thread(conn, 
-                                boardname, filedatas, 
-                                body, parsed,
-                                password, name,
-                                email, subject)
-    return threadid, postid
+        parsed = parse_post(boardname, body)
+
+        threadid, postid, fpid = db_cud.create_thread(conn, 
+                                    boardname, filedatas, 
+                                    body, parsed,
+                                    password, name,
+                                    email, subject)
+    return threadid, postid, fpid
 
 @with_db(master)
 def create_board(title, subtitle, slogan, active=True, engine=None):
@@ -526,23 +548,30 @@ def _is_thread(threadid, engine=None):
 def validate_mod(username, password, engine=None):
     password = password.encode('utf-8')
     hashed = engine.execute(select([mods.c.username]).\
-                where(username=bindparam('username')), username=username)['password']
+                where(mods.c.username == username))['password']
     return bcrypt.hashpw(password, hashed) == hashed
 
 @with_db(slave)
-def _check_backref_preexistence(post_id, engine=None):
-    """ checks if the post already has references to it. 
-    If it does, those posts will be reparsed to inject <a> tags.
+def reparse_dirty_posts(board, post_id, engine=None):
+    """ reparses any posts marked as dirty; referencing not-yet-existing posts
         Args:
             post_id: id of the post being created
     """
-    dirty = select([backrefs.c.tail]).\
-         where(backrefs.c.head == post_id).\
-         order_by(asc(backrefs.c.id)).apply_labels()
-    dirty_postids = [d[0] for d in engine.execute(dirty).fetchall()]
-    for pid in dirty_postids:
-        body = engine.execute(select([posts.c.body]).where(posts.c.id == pid)).fetchone()[0]
-        parse_post(body, pid)
+    dirty = select([posts.c.body, posts.c.id]).where(posts.c.dirty == True)
+    for body, pid in engine.execute(dirty).fetchall():
+        parse_post(board, body, pid)
+
+@with_db(slave)
+def _get_realpostid(board, fakeid, engine=None):
+    """ gets the db postid from the id used on the board itself """
+    real_boardid = select([boards.c.id]).where(boards.c.title == board).as_scalar()
+    threadlist = select([threads.c.id]).where(threads.c.board_id == real_boardid)
+    postidq = select([posts.c.id]).where(
+                                    and_(
+                                        posts.c.thread_id.in_( threadlist ),
+                                        posts.c.fake_id == fakeid))
+    postid = engine.execute( postidq ).fetchone()
+    return postid[0] if postid else None
 
 def makedata():
     import gen_helpers as gh
@@ -554,22 +583,18 @@ def makedata():
     img2 = [{'filename':'img2', 
             'filetype': 'png',
             'spoilered': False}]
-    vt1, vp1 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp1')
-    vt2, vp2 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp2')
-    vt3, vp3 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp3')
-    vt4, vp4 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp4')
-    vt5, vp5 = create_thread('v', img2, 'op', parse_post('op')[0], 'vp4')
+    vt1, vp1, _ = create_thread('v', img2, 'op', 'vp1')
+    vt2, vp2, _ = create_thread('v', img2, 'op', 'vp2')
+    vt3, vp3, _ = create_thread('v', img2, 'op', 'vp3')
+    vt4, vp4, _ = create_thread('v', img2, 'op', 'vp4')
+    vt5, vp5, _ = create_thread('v', img2, 'op', 'vp4')
     for t in [vt1,vt2,vt3,vt4,vt5]:
         for i in range(5):
             p1 = '>>%s \n post %s TESTING TESTING TESTING TESTING\n >fuk \n\n >< spoil \n spoil2 \n ><'%(i+10, i)
             p2 = '>>%s \n post %s TYPE2 \n >fuk\n>sdfsdf\ndsfjsdoi>sdofkdspk \n\n >< spoil \n spoil2 \n ><'%(i, i)
-            p1p, addrefs1 = parse_post(p1)
-            p2p, addrefs2 = parse_post(p2)
-            pid1= create_post(t, img1, p1, p1p, 'vp%s'%i, 'anonymous', 'email', 'subject')
-            pid2= create_post(t, img1, p2, p2p, 'vp%s'%i, 'anonymous', 'email', 'subject')
-            create_backrefs((pid1, addrefs1))
-            create_backrefs((pid2, addrefs2))
-        create_post(vt1, {}, '',  'saged', 'saged', 'saged', 'saged', 'saged', True)
+            pid1= create_post('v', t, img1, p1, 'vp%s'%i, 'anonymous', 'email', 'subject')
+            pid2= create_post('v', t, img1, p2, 'vp%s'%i, 'anonymous', 'email', 'subject')
+        create_post('v', vt1, {}, '',  'saged', 'saged', 'saged', 'saged', True)
 
 if __name__ == '__main__':
     #db.create_db()

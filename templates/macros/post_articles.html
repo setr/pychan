@@ -9,7 +9,7 @@
 
 {% macro _header(boardname, threadid, post, isop=false )%} 
     {% set tid = threadid %}
-    {% set pid = post.id %}
+    {% set pid = post.fake_id %}
     <header>
         <input type="checkbox" class="postCheckbox">
         <span class="control">▶</span>
@@ -87,7 +87,7 @@
 
 {% macro article(boardname, threadid, post, isop, counts='') %}
     {% set tid = threadid %}
-    {% set pid = post.id %} 
+    {% set pid = post.fake_id %} 
     # if isop:
         {{ _figure(post.files, isop=true) }}  ## meguca op max h/w is 250x250
         {{ _header(boardname, threadid, post, isop=true )}}
