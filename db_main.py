@@ -574,14 +574,18 @@ def validate_mod(username, password, engine=None):
 
 @with_db(slave)
 def reparse_dirty_posts(boardname, boardid, engine=None):
-    """ reparses any posts marked as dirty; referencing not-yet-existing posts
+    """ reparses any posts marked as dirty for the given board; 
+           dirty = referencing not-yet-existing posts
         Args:
             boardname (str): name of the board ("v")
-            post_id (int): global id of the post being parsed
-            fpid (int): id local to the board
+            boardid (int): id of the board
     """
-    ## TODO: only update posts for the board in question
-    dirty = select([posts.c.body, posts.c.id, posts.c.fake_id]).where(posts.c.dirty == True)
+    threadlist = select([threads.c.id]).where(threads.c.board_id == boardid)
+    dirty = select([posts.c.body, posts.c.id, posts.c.fake_id]).\
+                where(and_(
+                    posts.c.dirty == True,
+                    posts.c.thread_id.in_( threadlist)))
+
     for body, pid, fpid in engine.execute(dirty).fetchall():
         parse_post(boardname, boardid, body, pid, fpid)
 
