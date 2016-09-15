@@ -2,7 +2,7 @@ import config as cfg
 from db_meta import db
 import sqlalchemy
 from sqlalchemy.sql import func
-from sqlalchemy import select, text, desc, bindparam, asc, and_
+from sqlalchemy import select, update, text, desc, bindparam, asc, and_ 
 import os
 import bcrypt
 import time
@@ -51,14 +51,14 @@ def transaction(conn):
     else:
         trans.commit()
 
-def create_post(conn, boardname, threadid, filedatas, body, parsed, password, name='', email='', subject='',  sage=False):
+def create_post(conn, boardid, threadid, filedatas, body, password, name='', email='', subject='',  sage=False):
     """ Submits a new post, without value validation
     However, it does check if the post should be forced-sage
         Either due to exceeding thread post limit
         or because a mod has killed the thread (thread.alive = false)
     
         Args:
-            boardname (str): board title
+            boardid (int): board_id
             thread (int): thread id
             filename (str): filename, on disk (path is implied by config'd dir)
             body (str): unparsed body text
@@ -76,26 +76,36 @@ def create_post(conn, boardname, threadid, filedatas, body, parsed, password, na
         'email':email,
         'subject':subject,
         'body':body,
-        'parsed':parsed,
         'password':password,
         'sage':sage}
     postquery = posts.insert()
     filesquery = files.insert()
 
     password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    postcount = select([func.count(posts.c.id)]).where(posts.c.thread_id == threadid)
-    talive =  select([threads.c.alive]).where(threads.c.id == threadid)
+    postcount = select([func.count(posts.c.id)]).\
+                    where(posts.c.thread_id == threadid)
+    talive =  select([threads.c.alive]).\
+                where(threads.c.id == threadid)
+    update_fpid = update(boards).\
+                    where(boards.c.id == boardid).\
+                  values( cur_pid = boards.c.cur_pid + 1 )
+    get_fpid = select([boards.c.cur_pid]).\
+                 where( boards.c.id == boardid)
     with transaction(conn):
         # in order to have a post-id index local to the board
         # we have to maintain it ourselves. So the fake_id for the post, that shown to the user
-        # is the total posts in the board + 1
-        boardid = conn.execute(select([boards.c.id]).\
-                    where(boards.c.title == boardname)).fetchone()['id']
-        threadlist = select([threads.c.id]).where(
-                        threads.c.board_id == boardid)
-        board_countq = select([func.count(posts)]).where(
-                        posts.c.thread_id.in_( threadlist ))
-        board_count = conn.execute( board_countq ).fetchone()[0]
+        # increment the board's fpid by 1
+        conn.execute( update_fpid )
+        # then get the new fake_id, and use it for the post
+        fake_id = conn.execute( get_fpid ).fetchone()['cur_pid']
+        postdata['fake_id'] = fake_id
+        #boardid = conn.execute(select([boards.c.id]).\
+        #            where(boards.c.title == boardname)).fetchone()['id']
+        #threadlist = select([threads.c.id]).where(
+        #                threads.c.board_id == boardid)
+        #board_countq = select([func.count(posts)]).where(
+        #                posts.c.thread_id.in_( threadlist ))
+        #board_count = conn.execute( board_countq ).fetchone()[0]
 
         count = conn.execute(postcount).fetchone()[0]
         isalive = conn.execute(talive).fetchone()[0]
@@ -103,7 +113,6 @@ def create_post(conn, boardname, threadid, filedatas, body, parsed, password, na
         fsage = (count > cfg.thread_max_posts) or (not isalive)
         if fsage: #forced saged
             postdata['sage'] = fsage
-        postdata['fake_id'] = board_count + 1
 
         post_id = conn.execute(postquery, postdata).inserted_primary_key[0]
         if filedatas: # list of empty dictionary
@@ -112,12 +121,12 @@ def create_post(conn, boardname, threadid, filedatas, body, parsed, password, na
             conn.execute(filesquery, filedatas)
     return post_id, postdata['fake_id']
 
-def cleanup_threads(boardname, conn=None):
+def cleanup_threads(boardid, conn=None):
     """ runs through and deletes any thread that has fallen off the board 
     Since this can only occur with the creation of a new thread, this check
     should only have to be made then. 
         Args:
-            boardname (str): name of the board
+            boardid (int): board_id
             conn (connection): connection being used in the transaction
         Returns:
             bool: succeeded or not"""
@@ -129,8 +138,8 @@ def cleanup_threads(boardname, conn=None):
             SELECT threads.id FROM threads
             JOIN posts
             ON threads.id = posts.thread_id
-            WHERE board_id = (
-                SELECT board_id from boards where boards.title = :board_title)
+            WHERE 
+                board_id = :boardid
             AND posts.id = (
                 SELECT max(id) FROM posts p1 WHERE threads.id = p1.thread_id
                                                         AND p1.sage = :false
@@ -141,7 +150,7 @@ def cleanup_threads(boardname, conn=None):
     """
  
     thread_max = cfg.index_max_pages * cfg.index_threads_per_page
-    data = {'board_title' : boardname,
+    data = {'boardid' : boardid,
             'thread_max' : thread_max,
             'false' : str(sqlalchemy.false())}
             #'true' : str(sqlalchemy.true())}
@@ -161,7 +170,7 @@ def mark_thread_dead(conn, threadid):
         conn.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-def create_thread(conn, boardname, filedatas, body, parsed, password, name, email, subject):
+def create_thread(conn, boardid, filedatas, body, password, name, email, subject):
     """ Submits a new thread, without value checking. 
         Args:
             boardname (str): name of the board
@@ -185,21 +194,19 @@ def create_thread(conn, boardname, filedatas, body, parsed, password, name, emai
     # delete any threads that fell off the board
     with transaction(conn):
         true = str(sqlalchemy.true())
-        boardid = conn.execute(select([boards.c.id]).\
-                    where(boards.c.title == boardname)).fetchone()['id']
         threadid = conn.execute(threads.insert().values(
                      board_id= boardid, 
                      alive=true,
                      sticky=true)).inserted_primary_key[0]
-        postid,fakeid = create_post(conn, boardname,
+        postid,fakeid = create_post(conn, boardid,
                     threadid, filedatas, 
-                    body, parsed,
+                    body, 
                     password, name, 
                     email, subject)
         conn.execute(threads.update().\
                 where(threads.c.id == threadid).\
                 values(op_id= postid))
-        #cleanup_threads(conn, boardname)
+        #cleanup_threads(conn, boardid)
     return threadid, postid, fakeid
 
 def create_board(conn, title, subtitle, slogan, active=True):
@@ -214,20 +221,12 @@ def create_board(conn, title, subtitle, slogan, active=True):
     query = boards.insert().values(title=title,
                                     subtitle=subtitle,
                                     slogan=slogan,
-                                    active=active)
+                                    active=active,
+                                    cur_pid=0)
     with transaction(conn):
         boardid = conn.execute(query).inserted_primary_key[0]
     return boardid
 
-#def create_backrefs(conn, brefs):
-#    query = backrefs.insert().prefix_with("OR REPLACE")
-#    tail = brefs[0]
-#    heads = brefs[1]
-#    data = [{ "head": head,
-#                "tail": tail}
-#                for head in heads]
-#    with transaction(conn):
-#        conn.execute(query, data)
 
 def create_backrefs(conn, backreflist):
     with transaction(conn):
@@ -244,6 +243,7 @@ def update_post_parsed(conn, parsed, postid):
     with transaction(conn):
         query = posts.update().where(posts.c.id == postid).values(parsed=parsed)
         conn.execute(query)
+
 def mark_dirtyclean(conn, postid, isdirty):
     with transaction(conn):
         query = posts.update().where(posts.c.id == postid).values(dirty= isdirty)

@@ -39,8 +39,8 @@ def _save_image(image, ext, mainpath, thumbpath, isop):
                         '-alpha'      , 'remove' ,
                         thumbpath]
         else:
-            #command = ['/usr/bin/convert'      , mainpath ,
-            command = ['convert'     , mainpath ,
+            command = ['/usr/bin/convert'      , mainpath ,
+            #command = ['convert'     , mainpath ,
                         '-thumbnail' , size     ,
                         '-format'    , 'jpg'    ,
                         thumbpath]

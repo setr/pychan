@@ -92,44 +92,47 @@ def if_board_exists(fn):
     """ Decorator
     Only allow request to continue if the board in question actually exists
     The function must be consuming a variable called board
+    It also injects the boardid into the argument
     """
     @wraps(fn)
     def go(*args, **kwargs):
-        boarddata = db.fetch_board_data(kwargs['board'])
-        if not boarddata:
+        boardid = db.get_boardid(kwargs['boardname'])
+        if not boardid:
             return general_error('board does not exist')
         else:
-            return fn(*args, **kwargs)
+            return fn(*args, boardid=boardid, **kwargs)
     return go
 
-@app.route('/<board>/upload', methods=['POST'])
+@app.route('/<boardname>/upload', methods=['POST'])
 @if_board_exists
-def newthread(board):
+def newthread(boardname, boardid=None):
     if 'image' not in request.files or request.files['image'].filename == '':
         return general_error('New threads must have an image')
-    return _upload(board)
+    return _upload(boardname, boardid)
 
-@app.route('/<board>/<int:threadid>/upload', methods=['POST'])
+@app.route('/<boardname>/<int:threadid>/upload', methods=['POST'])
 @if_board_exists
-def newpost(board, threadid):
+def newpost(boardname, threadid, boardid=None):
     if db.is_locked(threadid):
         return general_error('Thread is locked')
-    return _upload(board, threadid)
+    return _upload(boardname, threadid, boardid)
 
-@app.route('/<board>/delete', methods=['POST'])
+@app.route('/<boardname>/delete', methods=['POST'])
 @if_board_exists
-def delpost(board):
-    fakeid = request.form.get('postid')
+def delpost(boardname, boardid=None):
+
+    # we're actually getting the global postid from the form this time
+    global_postid = request.form.get('postid')
     password = request.form.get('password')
     url = request.form.get('url')
 
     ismod = 'mod' in session
-    if db._is_thread(board, postid):
+    if db.is_thread(boardid, postid):
         files = db.fetch_files_thread(postid)
     else:
         files = db.fetch_files(postid)
     
-    error = db.delete_post(board, postid, password, ismod)
+    error = db.delete_post(postid, password, ismod)
     if error:
         return general_error(error)
 
@@ -147,10 +150,10 @@ def delpost(board):
     return redirect(url)
 
 #@checktime
-def _upload(board, threadid=None):
+def _upload(boardname, threadid=None, boardid=None):
     """ handles the entire post upload process, and validation
         Args:
-            board (str): board title for the new post
+            boardname (str): the name of the board
             threadid (Optional[id]): the id of the parent thread. None if this is a new thread.
         Returns:
             Redirects to the (new) thread
@@ -168,12 +171,15 @@ def _upload(board, threadid=None):
     password  = request.form.get('password',
                     default= "idc",
                     type= str)
+    
+    if email == "sage": 
+        sage = True 
 
     if (not post or post.isspace()) and not image:
         return general_error('Cannot have an empty post') 
     if not gh._validate_post(post):
         return general_error('Spam/Robot detected')
-    if threadid and not db._is_thread(board, threadid):
+    if threadid and not db.is_thread(boardid, threadid):
         return general_error('Specified thread does not exist')
 
     # and now we start saving the post
@@ -203,31 +209,31 @@ def _upload(board, threadid=None):
         'spoilered' : spoilered}
         files.append(filedict)
 
-    # drop it into the DB
-    #parsed_body, reflist = db.parse_post(board, post)
     if isop: 
-        threadid, pid, fpid = db.create_thread(board, files, post, password, name, email, subject)
+        # ops cannot be made saged by normal usage.
+        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject)
     else:
-        pid, fpid = db.create_post(board, threadid, files, post, password, name, email, subject, sage)
+        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage)
 
     # Special case: posts may >>pid posts that do not actually exist yet. 
     # If they reference the pid we _just_ created, then we'll have to 
     # reparse those old posts.
-    db.mark_dirtyclean(pid, True) # assume dirty unless proven clean
-    db.reparse_dirty_posts(board, pid, fpid)
 
-    return redirect(url_for('thread', board=board, thread=threadid, _anchor=fpid))
+    # posts are marked dirty by default
+    db.reparse_dirty_posts(boardname, boardid)
+
+    return redirect(url_for('thread', boardname=boardname, thread=threadid, _anchor=fpid))
 
 
 @app.route('/', methods=['GET'])
 def root():
     return redirect(url_for('index', board='v')) # TODO: Make a boardlist page.
 
-@app.route('/<board>', methods=['GET'])
-@app.route('/<board>/', methods=['GET'])
-@app.route('/<board>/index.html', methods=['GET'])
+@app.route('/<boardname>', methods=['GET'])
+@app.route('/<boardname>/', methods=['GET'])
+@app.route('/<boardname>/index.html', methods=['GET'])
 @if_board_exists
-def index(board):
+def index(boardname, boardid=None):
     page = request.args.get('page', 0)
     try:
         page = int(page) # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
@@ -236,24 +242,24 @@ def index(board):
     if page > cfg.index_max_pages:
         return e404(None)
     
-    boarddata = db.fetch_board_data(board)
+    boarddata = db.fetch_boarddata(boardid)
     if not boarddata:
         return general_error('board does not exist')
 
-    threads = db.fetch_page(board, page)
+    threads = db.fetch_page(boardid, page)
     hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
     return render_template('board_index.html',
             threads=threads,
             board=boarddata,
             counts=hidden_counts)
 
-@app.route('/<board>/<thread>/', methods=['GET'])
+@app.route('/<boardname>/<thread>/', methods=['GET'])
 @if_board_exists
-def thread(board, thread):
-    if not db._is_thread(board, thread):
+def thread(boardname, thread, boardid=None):
+    if not db.is_thread(boardid, thread):
         return general_error('Specified thread does not exist')
-    thread_data = db.fetch_thread(board, thread)
-    board_data = db.fetch_board_data(board)
+    thread_data = db.fetch_thread(boardid, thread)
+    board_data = db.fetch_boarddata(boardid)
     return render_template('thread.html',
             thread=thread_data,
             board=board_data)
