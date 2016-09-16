@@ -110,19 +110,19 @@ then go to localhost:5000
        - [x] image thumbnail
        - [x] webm thumbnail
        - [ ] spoiler thumbnail
-       - [x] webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault. ** works fine on nginx **
+       - [x] webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault. **works fine on nginx**
        - [ ] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
+              - I don't know why, but PDF thumbnail generation fails on server. Works fine on localhost, and when called using the Flask-server. 
 - [ ] Full image on hover (JS)
        - Shouldn't apply to webms (it's annoying)
        - Shouldn't apply to PDFs
-- [ ] Inline expansion (JS)
+- [x] Inline expansion (JS)
        - [x] Image Inlined
        - [x] Webm Inlined
        - [x] PDF should not inline. Just target="_blank"
 - [ ] Spoiler
        - thumbnail points to spoiler.jpg, and the flag in the db is there. No button to set it when posting though.
-- [ ] Youtube embed
-       - probably want this to be in the image section 
+ 
 
 ### BODY TEXT
 - [x] Either move styling injection to client-side (JS) or save the parsed body-text to the db (PYTHON)
@@ -132,10 +132,20 @@ then go to localhost:5000
        - [x] Move post-ownership from session cookie to unsigned cookie, so JS can unpack (PYTHON)
             - It turns out session objects are read-only client-side, which is sufficient
             - Currently this is implemented, but from python's parsing
+            - I think this is going to either need board-specific cookies or something
        - [ ] Detect ownership and inject ::after
 
-### CONVENIENCE
+### User Functionality
 - [ ] Auto-update threads (JS/AJAX)
+- [x] sage
+- [ ] tripcode
+- [ ] gimmicks? (dice rolls and whatnot)
+- [x] spoiler text
+- [x] reply-links
+- [x] replied-by links
+- [x] >implying
+- [ ] Youtube embed (JS)
+       - probably want this to be in the image section
 
 ### MODS
 - [x] Login check on specific pages
@@ -155,7 +165,6 @@ then go to localhost:5000
     - globals are at the top, and then you set specific ones, with the L1 dict being the boardname (ie 'v')
 - [ ] Missing options I can think of now
     - [ ] Media support On/Off
-- [ ] C
 
 ### CODEBASE
 - [ ] Move flask routing and helper functions into seperate files
@@ -180,4 +189,4 @@ then go to localhost:5000
 - [ ] Thread Watcher (JS/AJAX)
 - [ ] Report
        - Currently nothing in DB to support that
-       - But it's probably just an additional table
+       - But it's probably just an additional table. Just need to email right people or display it or something
