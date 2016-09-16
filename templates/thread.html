@@ -1,9 +1,9 @@
 {% import 'macros/post_articles.html' as posts %}
-{% import 'macros/header.html' as headers %}
+{% import 'macros/sections.html' as sections %}
 {% import 'macros/banner.html' as banner %}
 <!DOCTYPE html>
 <html lang="en">
-    {{ headers.header() }}
+    {{ sections.header() }}
     <body>
         {{ banner.banner() }}
         <h1> <img> <!-- banner img goes here --> </img> </h1>
@@ -31,11 +31,9 @@
             </aside>
 
             <hr>
-            <span class="act"><a href="/{{tit}}/" id="bottom" class="history">Return</a></span>
-            <span class="act"><a href="#">Top</a></span>
-            <input type="password" id="pass"/> 
             </section> ## END OF THREAD
         </threads>
+        {{ sections.footer(isThread=True) }}
     </body>
 </html>
     

@@ -1,9 +1,9 @@
 {% import 'macros/post_articles.html' as posts %}
-{% import 'macros/header.html' as headers %}
+{% import 'macros/sections.html' as sections %}
 {% import 'macros/banner.html' as banner %}
 <!DOCTYPE html>
 <html lang="en">
-    {{ headers.header() }}
+    {{ sections.header() }}
     <body>
         {{ banner.banner() }}
         <h1> <img> <!-- banner img goes here --> </img> </h1>
@@ -37,7 +37,7 @@
             </section> ## END OF THREAD
         {% endfor %} 
         </threads>
-        <input type="password" id="pass"/> 
+        {{ sections.footer(isThread=False) }}
     </body>
 </html>
     

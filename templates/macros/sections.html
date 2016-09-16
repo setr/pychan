@@ -20,3 +20,11 @@
         <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     </head>
 {%- endmacro %}
+
+{% macro footer(isThread) %}
+    # if isThread
+        <span class="act"><a href="/{{tit}}/" id="bottom" class="history">Return</a></span>
+        <span class="act"><a href="#">Top</a></span>
+    # endif
+    <input type="password" id="pass"/>
+{%- endmacro %}
