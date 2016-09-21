@@ -26,8 +26,8 @@ index_max_pages        = 10   # max number of pages the board-index will support
 thread_max_posts       = 500  # threads with more than n posts can no longer be bumped
 post_max_length        = 2000 # 4chan max post length, on /v/ at least
 
-# thumbnail settings
-op_thumb_max_height   = 250
+# thumbnail settings (in px)
+op_thumb_max_height   = 250 
 op_thumb_max_width    = 250
 post_thumb_max_height = 125
 post_thumb_max_width  = 125
@@ -38,6 +38,10 @@ op_exp_max_height   = 500
 op_exp_max_width    = 500
 post_exp_max_height = 300
 post_exp_max_width  = 300
+
+## SPAM
+detect_bot_on = False     # turn on spambot detection
+minsec_between_posts = 30 # how many seconds between two posts?
 
 imagemagick_formats = ['jpg', 'png', 'gif', 'jpeg', 'pdf'] # allowed image types; must be supported by imagemagick
 ffmpeg_formats      = ['webm']                             # allowed video types; must be supported by ffmpeg
@@ -52,4 +56,11 @@ boards = [ ('g', 'tech'),
 boardlinks = [  ('a', 'http://hawk.eva.hk/a/'),
                 ('g', 'http://hawk.eva.hk/g/'),
                 ('m', 'http://hawk.eva.hk/m/') ]
+
+imgpath = 'static/src/imgs/'   ## where the full-size imaage is stored
+thumbpath = 'static/src/thumb/' ## thumbnails (always jpg's)
+
+# AWS s3 example
+# imgpath = 's3://pychan/static/src/imgs/'   ## where the full-size imaage is stored
+# thumbpath = 's3://pychan/static/src/thumb/' ## thumbnails (always jpg's)
 

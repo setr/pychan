@@ -54,21 +54,20 @@
         {% set width = cfg.post_thumb_max_width %}
         {% set height= cfg.post_thumb_max_height %}
     # endif 
+    {% set width = width ~ 'px' %}
+    {% set height = height ~ 'px' %}
+
 
     # for f in filelist:
-        {% set tf = '' %}
-        # if f.spoilered:
-            {% set tf = 'spoilered.jpg' %}
-        # else:
-            {% set tf = f.filename + '.jpg' %} 
-        # endif
+        {% set tf = f.filename + '.jpg' %} 
+        {% set thumbclass = 'thumb spoiler' if f.spoilered else 'thumb' %}
         
         # if f.filetype == 'webm':
-            {% set class = 'video' %}
+            {% set mainclass = 'video' %}
         # elif f.filetype == 'pdf':
-            {% set class = 'pdf' %}
+            {% set mainclass = 'pdf' %}
         # else:
-            {% set class = 'image' %}
+            {% set mainclass = 'image' %}
         # endif
 
         {% set thumbf = "src/thumb/" + tf %} ## this should be changed to cfg.option
@@ -79,9 +78,9 @@
             <figcaption>
             <!-- imgsearch urls -->
             </figcaption> 
-            <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{class}}" href="{{ linkf }}">
+            <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{mainclass}}" href="{{ linkf }}">
                 ## pdfs will also have an image thumbnail but won't inline expand (due to class='pdf')
-                <img src="{{linkt}}" class="thumb" style="max-width:{{width}}; max-height:{{height}}">
+                <img src="{{linkt}}" class="{{thumbclass}}" style="max-width:{{width}}; max-height:{{height}}">
             </a>
         </figure>
     # endfor

@@ -8,27 +8,39 @@ $(document).ready(function () {
 //          event.target.classList.toggle('reveal');
 //          });
 
-if (Cookies.get('hidden') == null){
-  Cookies.set('hidden', [])
+// autoconvert strings to real values
+function getCookieVal(key){
+    var temp = Cookies.get(key);
+    switch (temp) {
+        case 'false': return false;
+        case 'true': return true;
+        default: return temp;
+    }
 }
-if (Cookies.get('pass') == null){
-  newpass = Math.random().toString(36).substr(2, 16);
-  Cookies.set('pass', newpass)
-}
-$('#pass').val(Cookies.get('pass'));
+// cookie defaults
+defaults = {'spoilers': false,
+            'css':     'ashita',
+            'hidden':  [],
+            'pass':    Math.random().toString(36).substr(2,16),
+           }
+$.each(defaults, function(key, val) {
+    if (getCookieVal(key) == null) {
+        Cookies.set(key, val)
+    }
+});
+        
+$('#pass').val(getCookieVal('pass')); // password at the bottom of page
+$('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
 
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
     var postids = Cookies.getJSON('hidden');
     $("article, section").each( function() {
-      var id = $(this).attr("id")
+      var id = this.id;
       if ($.inArray(id, postids) > -1) {
         $(this).remove()
       }});}
 hide_postlist()
-
-function hiddenpass_update(hidden, shown){
-}
     
 // reply form injection
 function createTrailer(article, replyform){
@@ -62,11 +74,11 @@ function createTrailer(article, replyform){
 
     submit.click(function() {
         var pass = $('#pass').val();
-        if (pass.trim() && Cookies.get('pass') != pass){
+        if (pass.trim() && getCookieVal('pass') != pass){
             Cookies.set('pass', pass);
             $('#password').val(pass);
         } else {
-            $('#password').val(Cookies.get('pass'));
+            $('#password').val(getCookieVal('pass'));
         }
     });
     cancel.click(function() {
@@ -157,43 +169,35 @@ $(".act.posting.thread").each(function () {
     });
 
 // image inline expandsion
-// the srcs need to refere to url_for('static').. or better yet
-// cfg.static + cfg.thumb | cfg.imgs
+// expanded images are injected so that we only load the full version
+// if the thumbnail is clicked on.
 // pdfs don't get expanded; the browser will handle opening it.
-$(".image, .video").each(function () {
+$('.image, .video').each( function (){
     $(this).click(function(evt) {
-        // there must be a better way of doing this
         evt.preventDefault();
-        var basename = $(this).attr('id');
-        var mainpath = $(this).attr('href');
-        var thumb = $(this).find(".thumb");
-        var expanded = $(this).find(".expanded");
-        var img = "";
-        if (thumb.length) {
-            if ($(this).hasClass('image')){
-                thumb.remove();
-                img = $("<img>", {
-                          "src": mainpath,
+        mainfile = this.href;
+        if ($(this).children('.expanded').length == 0) { // inject a new expanded
+            var img = '';
+            $(this).children('.thumb').hide();
+            if (this.classList.contains('image')){
+                img = $("<img>", 
+                         {"src": mainfile,
                           "class": "expanded"});
-            } else if ($(this).hasClass('video')) {
-                thumb.remove();
+            } else if (this.classList.contains('video')){
                 img = $("<video>", {"class": "expanded",
                                     "controls": true,
                                     "loop": true,
                                     "autoplay": true}).append(
                            $("<source>", {
-                               "src": mainpath,
+                               "src": mainfile,
                                "type": "video/webm"}));
             }
+            $(this).append(img);
         } else {
-            expanded.remove();
-            var img = $("<img>", {
-                         "src": "/static/src/thumb/" + basename + '.jpg',
-                         "class": "thumb"})
+            $(this).children('.expanded, .thumb').toggle();
         }
-        $(this).append(img)
-        });
-    });
+    })
+});
 
 function c_postitem(action, value, postid){
     return $("<li>").append(
@@ -210,7 +214,7 @@ function c_postitem(action, value, postid){
  This is because automagic hiding could be troublesome, like in the case of inline-replying pointing to a post that had been previously hidden.
  In this case, we want to see the hidden post.*/
 function add_hiddenpost(postid){
-    var curCookies = Cookies.getJSON('hidden');
+    var curCookies = cookies.getJSON('hidden');
     curCookies.push(postid);
     Cookies.set('hidden', curCookies, { expires: 10 });
 }
@@ -224,32 +228,64 @@ $(".control").click(function (){
         $(this).css("transition-duration", ".4s");
         // and now we spawn a dropdown menu
         var post = $(this).closest("article, section")
-        var postid = post.attr("id")
+        var postid = post.id;
         var board = location.pathname.split('/')[1]
         board = "/".concat(board)
-        $(this).after(
-          //$("<div>", {class: "postmenu"}).append(
-            $("<ul>", {class: "popup-menu"}).append(
-              c_postitem("url", "Hide Post").click(
-                function(e) { 
-                  e.preventDefault(); 
-                  add_hiddenpost(postid);
-                  post.remove();}),
-              c_postitem(board.concat("/delete"), "Delete Post", postid)
-              //c_postitem(board.concat("/report"), "Report Post", postid)
-              ));//);
-        $('.popup-menu').hover(
+        var menu = $("<ul>", {class: "popup-menu"}).append(
+                        c_postitem("url", "Hide Post").click(
+                            function(e) { 
+                                e.preventDefault(); 
+                                add_hiddenpost(postid); // add it to cookies so it stays hidden
+                                post.remove();}),
+                        c_postitem(board.concat("/delete"), "Delete Post", postid)
+                    );
+        menu.hover(
             function () {}, // do nothing on mouse enter
-            function () { $(this).remove(); $('.control').css('transform', '');}); // delete on mouse leave
+            function () { $(this).remove(); $('.control').css('transform', '');} // delete on mouse leave
+            );
+        $(this).after(menu); // if you make it a child of the arrow, it'll rotate too
 
     } else {
         $(this).css("transform","" );
-        // and now remove the dropdown menu
-        //$('.popup-menu').remove();
-        //$(this).next().remove();
     }
 });
 
-
+// BANNER CONTROLS
+$('#options').click( function() {
+    $('#options-panel').toggle();
 });
+
+$('[data-content^=tab-]').click( function() {
+    // reset other menu items to hidden
+    $('[data-content^=tab-').not(this).each( function() {
+        $(this).removeClass('tab_sel');
+        var tab = '.' + this.dataset.content;
+        $(tab).removeClass('tab_sel')
+    });
+    // set this one to shown
+    $(this).toggleClass('tab_sel');
+    var tab = '.' + this.dataset.content;
+    $(tab).addClass('tab_sel')
+});
+
+$('#spoilers').change( function () {
+    var checked = this.checked;
+    Cookies.set('spoilers', checked);
+    if (!checked){
+        // swap all spoilered images with their real thumb
+        $(`.image > .spoiler, 
+            .pdf > .spoiler, 
+            .webm > .spoiler`).each( function() {
+                this.className = 'thumb unspoiler'
+        });
+    } else {
+        $(`.image > .unspoiler, 
+            .pdf > .unspoiler, 
+            .webm > .unspoiler`).each( function() {
+                this.className = 'thumb spoiler'
+        });
+    }
+});
+
+}); //end document-ready
 

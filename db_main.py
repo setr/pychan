@@ -628,7 +628,7 @@ def makedata():
             'spoilered': False}]
     img2 = [{'filename':'img2', 
             'filetype': 'png',
-            'spoilered': False}]
+            'spoilered': True}]
     vt1, vp1, _ = create_thread(vid, img2, 'op', 'vp1')
     vt2, vp2, _ = create_thread(vid, img2, 'op', 'vp2')
     vt3, vp3, _ = create_thread(vid, img2, 'op', 'vp3')

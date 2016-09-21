@@ -14,15 +14,9 @@ import hashlib
 
 app = Flask(__name__)
 
-imgpath = 'src/imgs/'
-thumbpath = 'src/thumb/'
-
 ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
 #ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
-app.config['UPLOAD_FOLDER'] = 'static/' + imgpath
-app.config['THUMB_FOLDER'] = 'static/' + thumbpath
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
-app.config['minsec_between_posts'] = 30
 app.jinja_env.line_statement_prefix = '#' # enables jinja2 line mode
 app.jinja_env.line_comment_prefix = '##' # enables jinja2 line mode
 
@@ -67,7 +61,7 @@ def checktime(fn):
             session['lastpost'] = now
         else:
             delta = now - session['lastpost']
-            mintime = app.config['minsec_between_posts']
+            mintime = cfg.minsec_between_posts
             if delta < datetime.timedelta(seconds=mintime):
                 return general_error('Please wait at least %s seconds before posting again' % (mintime,))
             else:
@@ -140,11 +134,11 @@ def delpost(boardname, boardid=None):
         try:
             main = f['filename'] + '.' + f['filetype']
             thumb = f['filename'] + '.jpg'
-            mainfile = os.path.join(app.config['UPLOAD_FOLDER'], main)
-            thumbfile = os.path.join(app.config['THUMB_FOLDER'], thumb)
+            mainfile = os.path.join(cfg.imgpath , main)
+            thumbfile = os.path.join(cfg.thumbpath, thumb)
             os.remove(mainfile)
             os.remove(thumbfile)
-        except OSError:
+        except OSError: ##TODO
             pass
     
     return redirect(url)
@@ -196,8 +190,8 @@ def _upload(boardname, threadid=None, boardid=None):
         basename = str(int(basename[:16], 16)) # more or less like 4chan
         newname = "%s.%s" % (basename, ext) 
         # files is whats actually being passed to the db
-        mainpath  = os.path.join(app.config['UPLOAD_FOLDER'], newname)
-        thumbpath = os.path.join(app.config['THUMB_FOLDER'], '%s.%s' % (basename, 'jpg'))
+        mainpath  = os.path.join(cfg.imgpath, newname)
+        thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
 
         if os.path.isfile(mainpath):
             return general_error('File already exists')

@@ -69,10 +69,31 @@
 </table>
 </div>
 
-<div class="bmodal" id="options-panel" style="display: none; top: 22px;"> 
+<div class="bmodal" id="options-panel" style="display: block; top: 22px;">
     <ul class="option_tab_sel">
+        <li><a data-content="tab-0" class="">General</a></li>
+        <li><a data-content="tab-1" >Style</a></li>
+        <li><a data-content="tab-2">ImageSearch</a></li>
+        <li><a data-content="tab-3">Fun</a></li>
+        <li><a data-content="tab-4">Shortcuts</a></li>
     </ul>
+
     <ul class="option_tab_cont">
+        <li class="tab-0"> </li>
+        <li class="tab-1">
+            <input type="checkbox" id="spoilers">
+            <label for="spoilers" title="Don't spoiler images">Image Spoilers</label>
+            <br>
+            <select id="theme">    
+                # for css in cfg.themes
+                    <option value={{css}}>{{css}}</option>
+                # endfor
+            </select>
+            <label for="theme">Theme</label>
+        </li>
+        <li class="tab-2"> </li>
+        <li class="tab-3"> </li>
+        <li class="tab-4"> </li>
     </ul>
 </div>
 

@@ -35,6 +35,9 @@ article{
 .popup-menu {
     z-index: 5;
 }
+.spoiler {
+    content: url('http://i.4cdn.org/fa/1370877928640.png');
+}
 /*
 .postmenu{
     position: relative;
