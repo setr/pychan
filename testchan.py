@@ -1,9 +1,13 @@
 import db_main as db
 import config as cfg
 import gen_helpers as gh
+import errors as err
+
 from flask import Flask, request, render_template
 from flask import url_for, flash, redirect, session
 from flask import send_from_directory, Markup 
+from flask_s3 import FlaskS3
+
 from pprint import pprint
 import random, string
 import os
@@ -13,6 +17,15 @@ from functools import wraps
 import hashlib
 
 app = Flask(__name__)
+
+# s3 options
+app.config['FLASKS3_ACTIVE'] = cfg.aws
+app.config['FLASKS3_BUCKET_NAME'] = cfg.S3_BUCKET
+app.config['FLASKS3_BUCKET_DOMAIN'] = cfg.S3_BUCKET_DOMAIN
+app.config['AWS_ACCESS_KEY_ID'] = cfg.S3_ACCESS_KEY
+app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
+s3 = FlaskS3(app)
+
 
 ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
 #ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
@@ -63,7 +76,7 @@ def checktime(fn):
             delta = now - session['lastpost']
             mintime = cfg.minsec_between_posts
             if delta < datetime.timedelta(seconds=mintime):
-                return general_error('Please wait at least %s seconds before posting again' % (mintime,))
+                raise err.DNE('Please wait at least %s seconds before posting again' % (mintime,))
             else:
                 session['lastpost'] = now
         return fn(*args, **kwargs)
@@ -79,7 +92,7 @@ def adminonly(fn):
         if 'mod' in session:
             return fn(*args, **kwargs)
         else:
-            return general_error('You must be an admin to see this page'), # proper would be 401 Unauthorized
+            raise err.Forbidden('You must be an admin to see this page') # proper would be 401 Unauthorized
     return go
 
 def if_board_exists(fn):
@@ -92,7 +105,7 @@ def if_board_exists(fn):
     def go(*args, **kwargs):
         boardid = db.get_boardid(kwargs['boardname'])
         if not boardid:
-            return general_error('board does not exist')
+            raise err.DNE('board does not exist')
         else:
             return fn(*args, boardid=boardid, **kwargs)
     return go
@@ -101,14 +114,14 @@ def if_board_exists(fn):
 @if_board_exists
 def newthread(boardname, boardid=None):
     if 'image' not in request.files or request.files['image'].filename == '':
-        return general_error('New threads must have an image')
+        raise err.BadInput('New threads must have an image')
     return _upload(boardname, boardid)
 
 @app.route('/<boardname>/<int:threadid>/upload', methods=['POST'])
 @if_board_exists
 def newpost(boardname, threadid, boardid=None):
     if db.is_locked(threadid):
-        return general_error('Thread is locked')
+        raise err.PermDenied('Thread is locked')
     return _upload(boardname, threadid, boardid)
 
 @app.route('/<boardname>/delete', methods=['POST'])
@@ -128,7 +141,7 @@ def delpost(boardname, boardid=None):
     
     error = db.delete_post(postid, password, ismod)
     if error:
-        return general_error(error)
+        raise err.PermDenied(error)
 
     for f in files:
         try:
@@ -170,33 +183,19 @@ def _upload(boardname, threadid=None, boardid=None):
         sage = True 
 
     if (not post or post.isspace()) and not image:
-        return general_error('Cannot have an empty post') 
+        raise err.BadInput('Cannot have an empty post') 
     if not gh._validate_post(post):
-        return general_error('Spam/Robot detected')
+        raise err.PermDenied('Spam/Robot detected')
     if threadid and not db.is_thread(boardid, threadid):
-        return general_error('Specified thread does not exist')
+        raise err.DNE('Specified thread does not exist')
 
     # and now we start saving the post
     isop = False if threadid else True
-    # in the future, for handling multiple images, this would be looping through all the images
+    # TODO for handling multiple images, this would be looping through all the images
     files = list()
     if image:
-        f, e = os.path.splitext(image.filename)
-        ext = e[1:] # get rid of the . in the extension
-        allowed = ext in ALLOWED_EXTENSIONS
-        if not allowed:
-            return general_error('File not allowed')
-        basename = gh.hashfile(image) # returns hex
-        basename = str(int(basename[:16], 16)) # more or less like 4chan
-        newname = "%s.%s" % (basename, ext) 
-        # files is whats actually being passed to the db
-        mainpath  = os.path.join(cfg.imgpath, newname)
-        thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
+        basename, ext = gh.save_image(image)
 
-        if os.path.isfile(mainpath):
-            return general_error('File already exists')
-            err = 'File already exists'
-        newbasename = gh._save_image(image, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
         filedict = {
         'filename'  : basename,
         'filetype'  : ext,
@@ -238,7 +237,7 @@ def index(boardname, boardid=None):
     
     boarddata = db.fetch_boarddata(boardid)
     if not boarddata:
-        return general_error('board does not exist')
+        raise err.DNE('board does not exist')
 
     threads = db.fetch_page(boardid, page)
     hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
@@ -251,17 +250,30 @@ def index(boardname, boardid=None):
 @if_board_exists
 def thread(boardname, thread, boardid=None):
     if not db.is_thread(boardid, thread):
-        return general_error('Specified thread does not exist')
+        raise err.DNE('Specified thread does not exist')
+        #return general_error('Specified thread does not exist')
     thread_data = db.fetch_thread(boardid, thread)
     board_data = db.fetch_boarddata(boardid)
     return render_template('thread.html',
             thread=thread_data,
             board=board_data)
 
-def general_error(error):
-    return render_template('error.html', error_message=error)
+@app.errorhandler(err.BadInput)
+def handle_permdenied(error):
+    return render_template('error.html', error_message=error.message), 415
 
-@app.errorhandler(404)
-def e404(e):
-    return render_template('404.html'), 404
+@app.errorhandler(err.BadMedia)
+def handle_permdenied(error):
+    return render_template('error.html', error_message=error.message), 415
 
+@app.errorhandler(err.PermDenied)
+def handle_permdenied(error):
+    return render_template('error.html', error_message=error.message), 550 
+
+@app.errorhandler(err.Forbidden)
+def handle_Forbidden(error):
+    return render_template('error.html', error_message=error.message), 403
+
+@app.errorhandler(err.DNE)
+def handle_DNE(error):
+    return render_template('error.html', error_message=error.message), 404

@@ -57,10 +57,12 @@ boardlinks = [  ('a', 'http://hawk.eva.hk/a/'),
                 ('g', 'http://hawk.eva.hk/g/'),
                 ('m', 'http://hawk.eva.hk/m/') ]
 
-imgpath = 'static/src/imgs/'   ## where the full-size imaage is stored
+# AWS Settings
+aws = False# local img storage if False: S3 values won't be used.
+S3_BUCKET = 'pychan' # s3 bucket; not used if aws = False
+S3_BUCKET_DOMAIN = 'https://s3.us-west-2.amazonaws.com/'
+S3_ACCESS_KEY = ''
+S3_SECRET_KEY = ''
+
+imgpath = 'static/src/imgs/'   ## where the full-size image is stored
 thumbpath = 'static/src/thumb/' ## thumbnails (always jpg's)
-
-# AWS s3 example
-# imgpath = 's3://pychan/static/src/imgs/'   ## where the full-size imaage is stored
-# thumbpath = 's3://pychan/static/src/thumb/' ## thumbnails (always jpg's)
-
