@@ -21,7 +21,6 @@ requests==2.11.1
 rsa==3.4.2
 s3transfer==0.1.4
 six==1.10.0
-specan==0.0.0
 SQLAlchemy==1.0.13
 tinys3==0.1.11
 uWSGI==2.0.13.1
