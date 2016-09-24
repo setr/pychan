@@ -40,7 +40,7 @@ def save_image(afile):
     if aws: # an aws lambda function will generate the thumbnail, so no thumbpath
         import boto3
         s3 = boto3.resource('s3')
-        s3.Object(cfg.S3_BUCKET, mainpath).put(Body=afile))
+        s3.Object(cfg.S3_BUCKET, mainpath).put(Body=afile)
         
         
        # conn = tinys3.Connection(cfg.S3_ACCESS_KEY, 
