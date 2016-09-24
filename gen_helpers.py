@@ -1,6 +1,8 @@
 import subprocess
 import hashlib
 import config as cfg
+import os
+import errors as err
 
 import tinys3
 
