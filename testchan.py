@@ -220,7 +220,7 @@ def _upload(boardname, threadid=None, boardid=None):
 
 @app.route('/', methods=['GET'])
 def root():
-    return redirect(url_for('index', board='v')) # TODO: Make a boardlist page.
+    return redirect(url_for('index', boardname='v')) # TODO: Make a boardlist page.
 
 @app.route('/<boardname>', methods=['GET'])
 @app.route('/<boardname>/', methods=['GET'])
