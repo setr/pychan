@@ -22,8 +22,8 @@ app = Flask(__name__)
 app.config['FLASKS3_ACTIVE'] = cfg.aws
 app.config['FLASKS3_BUCKET_NAME'] = cfg.S3_BUCKET
 app.config['FLASKS3_BUCKET_DOMAIN'] = cfg.S3_BUCKET_DOMAIN
-app.config['AWS_ACCESS_KEY_ID'] = cfg.S3_ACCESS_KEY
-app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
+#app.config['AWS_ACCESS_KEY_ID'] = cfg.S3_ACCESS_KEY
+#app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
 s3 = FlaskS3(app)
 
 

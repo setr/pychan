@@ -60,7 +60,7 @@ boardlinks = [  ('a', 'http://hawk.eva.hk/a/'),
 # AWS Settings
 aws = False# local img storage if False: S3 values won't be used.
 S3_BUCKET = 'pychan' # s3 bucket; not used if aws = False
-S3_BUCKET_DOMAIN = 'https://s3.us-west-2.amazonaws.com/'
+S3_BUCKET_DOMAIN = 's3.us-west-2.amazonaws.com'
 S3_ACCESS_KEY = ''
 S3_SECRET_KEY = ''
 

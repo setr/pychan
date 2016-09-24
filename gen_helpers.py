@@ -22,13 +22,13 @@ def _validate_post(post):
     """
     return True
 
-def save_image(image):
-    f, e = os.path.splitext(image.filename)
+def save_image(afile):
+    f, e = os.path.splitext(afile.filename)
     ext = e[1:] # get rid of the . in the extension
     allowed = ext in ALLOWED_EXTENSIONS
     if not allowed:
         raise err.BadMedia('File not allowed')
-    basename = hashfile(image) # returns hex
+    basename = hashfile(afile) # returns hex
     basename = str(int(basename[:16], 16)) # more or less like 4chan; 16char name
     newname = "%s.%s" % (basename, ext)
     # files is whats actually being passed to the db
@@ -38,23 +38,28 @@ def save_image(image):
         raise err.BadInput('File already exists')
 
     if aws: # an aws lambda function will generate the thumbnail, so no thumbpath
-        conn = tinys3.Connection(cfg.S3_ACCESS_KEY, 
-                                 cfg.S3_SECRET_KEY,
-                                 tls= True,
-                                 default= cfg.bucket)
-        conn.upload(mainpath, 
-                    image,
-                    expires='max',
-                    headers = { 'x-amz-acl':  'public-read' } )  
+        import boto3
+        s3 = boto3.resource('s3')
+        s3.Object(cfg.S3_BUCKET, mainpath).put(Body=afile))
+        
+        
+       # conn = tinys3.Connection(cfg.S3_ACCESS_KEY, 
+       #                          cfg.S3_SECRET_KEY,
+       #                          tls= True,
+       #                          default= cfg.bucket)
+       # conn.upload(mainpath, 
+       #             afile,
+       #             expires='max',
+       #             headers = { 'x-amz-acl':  'public-read' } )  
     else:
         thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
-        _save_image(image, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
 
     return basename, ext
 
 
-def _save_image(image, ext, mainpath, thumbpath, isop):
-    image.save(mainpath) # first save the full image, unchanged
+def _local_save(afile, ext, mainpath, thumbpath, isop):
+    afile.save(mainpath) # first save the full image, unchanged
 
     h,w = (cfg.op_thumb_max_height, cfg.op_thumb_max_width) if isop \
      else (cfg.post_thumb_max_height, cfg.post_thumb_max_width)
