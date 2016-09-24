@@ -27,8 +27,6 @@ app.config['FLASKS3_BUCKET_DOMAIN'] = cfg.S3_BUCKET_DOMAIN
 s3 = FlaskS3(app)
 
 
-ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
-#ALLOWED_EXTENSIONS = set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webm'])
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 app.jinja_env.line_statement_prefix = '#' # enables jinja2 line mode
 app.jinja_env.line_comment_prefix = '##' # enables jinja2 line mode

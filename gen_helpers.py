@@ -25,6 +25,8 @@ def _validate_post(post):
     return True
 
 def save_image(afile):
+    ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
+
     f, e = os.path.splitext(afile.filename)
     ext = e[1:] # get rid of the . in the extension
     allowed = ext in ALLOWED_EXTENSIONS
@@ -39,20 +41,12 @@ def save_image(afile):
     if os.path.isfile(mainpath):
         raise err.BadInput('File already exists')
 
-    if aws: # an aws lambda function will generate the thumbnail, so no thumbpath
+    if cfg.aws: # an aws lambda function will generate the thumbnail, so no thumbpath
         import boto3
+        boto3.setup_default_session(profile_name='pychan')
         s3 = boto3.resource('s3')
         s3.Object(cfg.S3_BUCKET, mainpath).put(Body=afile)
-        
-        
-       # conn = tinys3.Connection(cfg.S3_ACCESS_KEY, 
-       #                          cfg.S3_SECRET_KEY,
-       #                          tls= True,
-       #                          default= cfg.bucket)
-       # conn.upload(mainpath, 
-       #             afile,
-       #             expires='max',
-       #             headers = { 'x-amz-acl':  'public-read' } )  
+
     else:
         thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
         _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
