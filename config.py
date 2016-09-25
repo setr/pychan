@@ -26,6 +26,12 @@ index_max_pages        = 10   # max number of pages the board-index will support
 thread_max_posts       = 500  # threads with more than n posts can no longer be bumped
 post_max_length        = 2000 # 4chan max post length, on /v/ at least
 
+# should we allow multiple posts to use the same image? 
+# if False, throw an error on re-upload. 
+# if True: Posts share the same image-file, and the file is only deleted if all
+# posts that reference it are deleted.
+allow_same_image = True       
+
 # thumbnail settings (in px)
 op_thumb_max_height   = 250 
 op_thumb_max_width    = 250

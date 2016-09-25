@@ -188,7 +188,7 @@ def _upload(boardname, threadid=None, boardid=None):
     # and now we start saving the post
     isop = False if threadid else True
     # TODO for handling multiple images, this would be looping through all the images
-    files = list()
+    files = list() # list of files to pass to db
     if image:
         basename, ext = gh.save_image(image, isop)
 
