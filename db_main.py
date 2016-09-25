@@ -310,7 +310,7 @@ def file_is_referenced(filename, filetype, engine=None):
     """
     q = select([ files ]).where(and_(
                             files.c.filename == filename,
-                            files.c.filetype == filetype)
+                            files.c.filetype == filetype))
     q = select([ exists(q) ])
     return engine.execute(q).fetchone()[0]
 
