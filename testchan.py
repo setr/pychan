@@ -142,16 +142,14 @@ def delpost(boardname, boardid=None):
         raise err.PermDenied(error)
 
     for f in files:
-        try:
-            main = f['filename'] + '.' + f['filetype']
-            thumb = f['filename'] + '.jpg'
-            mainfile = os.path.join(cfg.imgpath , main)
-            thumbfile = os.path.join(cfg.thumbpath, thumb)
-            os.remove(mainfile)
-            os.remove(thumbfile)
-        except OSError: ##TODO
-            pass
-    
+        if not db.file_is_referenced( f['filename'], filetype ):
+            try:
+                gh.delete_file( f['filename'], f['filetype'] ) 
+            except OSError: # we searched aws, but the file was local, or vice versa, most likely.
+                message = "The file could not be found"
+                return render_template('error.html', error_message= message)
+                
+                
     return redirect(url)
 
 #@checktime

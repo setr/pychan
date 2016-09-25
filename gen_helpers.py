@@ -6,6 +6,10 @@ import errors as err
 
 import tinys3
 
+# for AWS s3
+import boto3
+boto3.setup_default_session(profile_name='pychan')
+
 def hashfile(afile, blocksize=65536):
     hasher = hashlib.sha256()
     buf = afile.read(blocksize)
@@ -24,6 +28,22 @@ def _validate_post(post):
     """
     return True
 
+def delete_file(fname, fext):
+    main = f['filename'] + '.' + f['filetype']
+    thumb = f['filename'] + '.jpg'
+    mainpath = os.path.join(cfg.imgpath , main)
+    thumbpath = os.path.join(cfg.thumbpath, thumb)
+
+    if aws:
+        s3.Object(cfg.S3_BUCKET, mainpath).delete()
+        s3.Object(cfg.S3_BUCKET, thumbpath).delete()
+    else: # the file is stored locally, so we'll have to delete it there
+        try:
+            os.remove(mainfile)
+            os.remove(thumbfile)
+        except OSError: ##TODO
+            raise
+
 def save_image(afile):
     ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
 
@@ -38,22 +58,30 @@ def save_image(afile):
     # files is whats actually being passed to the db
 
     mainpath  = os.path.join(cfg.imgpath, newname)
+    thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
     if os.path.isfile(mainpath):
         raise err.BadInput('File already exists')
 
-    if cfg.aws: # an aws lambda function will generate the thumbnail, so no thumbpath
-        import boto3
-        boto3.setup_default_session(profile_name='pychan')
+    if cfg.aws: # TODO lambda function will generate the thumbnail 
         s3 = boto3.resource('s3')
         s3.Object(cfg.S3_BUCKET, mainpath).put(Body=afile)
-
+        # TODO stop doing this shit 
+        # for now, we're being stupid as shit
+        # locally saving the file, generating the thumbnail, uploading the thumb
+        # and finally deleting both the local file and thumb 
+        _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        s3.Object(cfg.S3_BUCKET, mainpath).put(Body=open(thumbpath, 'rb'))
+        try:
+            os.remove(mainfile)
+            os.remove(thumbfile)
+        except OSError:
+            pass
     else:
-        thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
         _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
 
     return basename, ext
 
-
+    
 def _local_save(afile, ext, mainpath, thumbpath, isop):
     afile.save(mainpath) # first save the full image, unchanged
 

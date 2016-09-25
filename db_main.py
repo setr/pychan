@@ -6,8 +6,7 @@ import db_cud
 #sqlalchemy
 import sqlalchemy
 from sqlalchemy.sql import func, label
-from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
-from sqlalchemy import select, text, desc, bindparam, asc, and_
+from sqlalchemy import select, text, desc, bindparam, asc, and_, exists
 
 from werkzeug import escape
 
@@ -299,6 +298,21 @@ def fetch_files(postid, engine=None):
     """
     q = select([files.c.filename, files.c.filetype, files.c.spoilered]).where(files.c.post_id == postid).order_by(files.c.post_id)
     return engine.execute(q).fetchall()
+
+@with_db(master)
+def file_is_referenced(filename, filetype, engine=None):
+    """ we only want to delete a file if it has no other posts using it
+        ie no other file row with this filename
+        Args:
+            postid (filename): name of the file (hash)
+        Returns:
+            Boolean: True if file is being used by an existing post
+    """
+    q = select([ files ]).where(and_(
+                            files.c.filename == filename,
+                            files.c.filetype == filetype)
+    q = select([ exists(q) ])
+    return engine.execute(q).fetchone()[0]
 
 @with_db(slave)
 def fetch_files_thread(postid, engine=None):
