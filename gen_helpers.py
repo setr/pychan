@@ -75,7 +75,7 @@ def save_image(afile, isop):
             os.remove(mainfile)
             os.remove(thumbfile)
         except OSError:
-            pass
+            raise
     else:
         _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
 
@@ -118,4 +118,4 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
                 thumbpath]
     # there should be no other valid exts
     # we're assumming success
-    subprocess.run(command)
+    subprocess.check_call(command)
