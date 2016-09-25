@@ -21,7 +21,7 @@
     </head>
 {%- endmacro %}
 
-{% macro footer(isThread) %}
+{% macro footer(isThread, tit=None) %}
     # if isThread
         <span class="act"><a href="/{{tit}}/" id="bottom" class="history">Return</a></span>
         <span class="act"><a href="#">Top</a></span>

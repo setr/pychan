@@ -44,7 +44,7 @@ def delete_file(fname, fext):
         except OSError: ##TODO
             raise
 
-def save_image(afile):
+def save_image(afile, isop):
     ALLOWED_EXTENSIONS = cfg.imagemagick_formats + cfg.ffmpeg_formats
 
     f, e = os.path.splitext(afile.filename)

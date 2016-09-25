@@ -190,7 +190,7 @@ def _upload(boardname, threadid=None, boardid=None):
     # TODO for handling multiple images, this would be looping through all the images
     files = list()
     if image:
-        basename, ext = gh.save_image(image)
+        basename, ext = gh.save_image(image, isop)
 
         filedict = {
         'filename'  : basename,
