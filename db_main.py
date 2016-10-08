@@ -8,6 +8,7 @@ import sqlalchemy
 from sqlalchemy.sql import func, label
 from sqlalchemy import select, text, desc, bindparam, asc, and_, exists
 
+from functools import wrap
 from werkzeug import escape
 
 import dateutil.relativedelta as du
@@ -60,6 +61,16 @@ def with_db(target):
             return fn(*args, engine=target, **kwargs)
         return wrapped
     return wrap
+
+def catch_EmptyFetch(fn):
+    """ Simple decorator to inject target db as the engine """
+    @wraps(fn)
+    def go(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except TypeError:
+            return None
+    return go
     
 @with_db(master)
 def delete_post(postid, password, ismod=False, engine=None):
@@ -157,6 +168,7 @@ def fetch_thread(boardid, threadid, engine=None):
     return post_list
 
 @with_db(slave)
+@catch_EmptyFetch
 def is_locked(threadid, engine=None):
     q = select([threads.c.locked]).where(threads.c.id == threadid)
     return engine.execute(q).fetchone()[0]
@@ -300,6 +312,7 @@ def fetch_files(postid, engine=None):
     return engine.execute(q).fetchall()
 
 @with_db(master)
+@catch_EmptyFetch
 def file_is_referenced(filename, filetype, engine=None):
     """ we only want to delete a file if it has no other posts using it
         ie no other file row with this filename
@@ -615,12 +628,14 @@ def get_fakeid(boardid, pid, engine=None):
     return engine.execute( fakeid ).fetchone()
 
 @with_db(slave)
+@catch_EmptyFetch
 def get_boardid(boardname, engine=None):
     """ given boardname, fetch the db's ID for it """
     return engine.execute( 
-                select([boards.c.id]).\
-                    where( boards.c.title == boardname )).\
-                    fetchone()[0]
+            select([boards.c.id]).\
+             where( boards.c.title == boardname )).\
+           fetchone()[0]
+
 @with_db(slave)
 def _get_realpostid(boardid, fakeid, engine=None):
     """ gets the db postid from the id used on the board itself """
@@ -631,7 +646,10 @@ def _get_realpostid(boardid, fakeid, engine=None):
                      posts.c.thread_id.in_( threadlist ),
                      posts.c.fake_id == fakeid))
     postid = engine.execute( postidq ).fetchone()
-    return postid[0] if postid else None
+    try:
+        return postid[0]
+    except TypeError:
+        return None
 
 def makedata():
     import gen_helpers as gh
