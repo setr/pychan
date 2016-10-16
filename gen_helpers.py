@@ -106,7 +106,7 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
         # for god knows what reason, thumbpath/mainpath need to be switched
         # for pdf vs img thumbnailing. weirdly, non-switched command works on cli just fine.
         if ext == 'pdf':
-            command = ['/usr/bin/convert', thumbpath
+            command = ['/usr/bin/convert', thumbpath,
             #command = ['convert'      , mainpath ,
                         '-thumbnail'  , size     ,
                         '-background' , 'white'  ,
