@@ -4,10 +4,10 @@ server {
     server_name hawk.eva.hk;
 
     location /a {
-        return 301 $scheme://real.hawk.eva.hk$request_uri
+        return 301 $scheme://real.hawk.eva.hk$request_uri;
     }
     location / {
-        return 301 $scheme://static.hawk.eva.hk$request_uri
+        return 301 $scheme://static.hawk.eva.hk$request_uri;
     }
 }
 
@@ -39,7 +39,7 @@ map $http_upgrade $connection_upgrade {
 }
 
 server {
-    listen 80
+    listen 80;
     server_name real.hawk.eva.hk;
 
     location / {

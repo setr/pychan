@@ -8,7 +8,7 @@ import sqlalchemy
 from sqlalchemy.sql import func, label
 from sqlalchemy import select, text, desc, bindparam, asc, and_, exists
 
-from functools import wrap
+from functools import wraps
 from werkzeug import escape
 
 import dateutil.relativedelta as du
@@ -57,6 +57,7 @@ def connection(engine):
 def with_db(target):
     """ Simple decorator to inject target db as the engine """
     def wrap(fn):
+        @wraps(fn)
         def wrapped(*args, **kwargs):
             return fn(*args, engine=target, **kwargs)
         return wrapped
