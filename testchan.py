@@ -174,6 +174,7 @@ def _upload(boardname, threadid=None, boardid=None):
     password  = request.form.get('password',
                     default= "idc",
                     type= str)
+    ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     
     if email == "sage": 
         sage = True 
@@ -200,9 +201,9 @@ def _upload(boardname, threadid=None, boardid=None):
 
     if isop: 
         # ops cannot be made saged by normal usage.
-        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject)
+        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject, ip)
     else:
-        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage)
+        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage, ip)
 
     # Special case: posts may >>pid posts that do not actually exist yet. 
     # If they reference the pid we _just_ created, then we'll have to 

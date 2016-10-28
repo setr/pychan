@@ -65,9 +65,10 @@ class DB():
                 Column('subject'   , String(50)),
                 Column('body'      , String(cfg.post_max_length),  nullable=False),
                 Column('parsed'    , Text),
-                Column('dirty'     , Boolean,                      default=True), # a dirty post references a non-existent post #
-                Column('password'  , String(60),                   nullable=False), # bcrypt output
-                Column('timestamp' , DateTime,                     default=datetime.datetime.utcnow))
+                Column('ip_address', String(45)), # ipv4-mapped-ipv6 max length
+                Column('dirty'     , Boolean,        default=True), # a dirty post references a non-existent post #
+                Column('password'  , String(60),     nullable=False), # bcrypt output
+                Column('timestamp' , DateTime,       default=datetime.datetime.utcnow))
 
         self.files = Table('files', self.metadata,
                 Column('id', Integer, primary_key=True),
@@ -89,7 +90,7 @@ class DB():
                 Column('active'   , Boolean    , default=True))
         self.banlist = Table('banlist', self.metadata,
                 Column('id'         , Integer      , primary_key=True),
-                Column('ip_address' , String(39))  , # ipv6 max length, in standard notation
+                Column('ip_address' , String(45))  , # ipv4-mapped-ipv6 max length
                 Column('reason'     , String(2000) , nullable=False),
                 Column('mod_id'     , Integer      , ForeignKey("mods.id")),
                 Column('board_id'   , Integer      , ForeignKey("boards.id"), nullable=True)) # if None , it's global ban

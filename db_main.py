@@ -110,7 +110,7 @@ def delete_post(postid, password, ismod=False, engine=None):
         return "incorrect password"
 
 @with_db(master)
-def create_post(boardid, thread, filedatas, body, password, name='', email='', subject='', sage=False, engine=None):
+def create_post(boardid, thread, filedatas, body, password, name='', email='', subject='', sage=False, ip='', engine=None):
     """ Submits a new thread, without value checking. 
         Args:
             boardid (int): board_id
@@ -133,7 +133,7 @@ def create_post(boardid, thread, filedatas, body, password, name='', email='', s
                                         body,
                                         password, name, 
                                         email, subject, 
-                                        sage)
+                                        sage, ip)
     return pid, fpid
 
 
@@ -504,7 +504,7 @@ def mark_thread_autosage(threadid, engine=None):
     return True
     
 @with_db(master)
-def create_thread(boardid, filedatas, body, password, name='', email='', subject='', engine=None):
+def create_thread(boardid, filedatas, body, password, name='', email='', subject='', ip='', engine=None):
     """ Submits a new thread, without value checking. 
         Args:
             boardid (id): board_id
@@ -525,7 +525,7 @@ def create_thread(boardid, filedatas, body, password, name='', email='', subject
                                     boardid, filedatas, 
                                     body, 
                                     password, name,
-                                    email, subject)
+                                    email, subject, ip)
     return threadid, postid, fpid
 
 @with_db(master)

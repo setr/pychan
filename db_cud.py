@@ -51,7 +51,7 @@ def transaction(conn):
     else:
         trans.commit()
 
-def create_post(conn, boardid, threadid, filedatas, body, password, name='', email='', subject='',  sage=False):
+def create_post(conn, boardid, threadid, filedatas, body, password, name='', email='', subject='',  sage=False, ip=''):
     """ Submits a new post, without value validation
     However, it does check if the post should be forced-sage
         Either due to exceeding thread post limit
@@ -77,6 +77,7 @@ def create_post(conn, boardid, threadid, filedatas, body, password, name='', ema
         'subject':subject,
         'body':body,
         'password':password,
+        'ip_address': ip,
         'sage':sage}
     postquery = posts.insert()
     filesquery = files.insert()
@@ -170,7 +171,7 @@ def mark_thread_dead(conn, threadid):
         conn.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
     return True
     
-def create_thread(conn, boardid, filedatas, body, password, name, email, subject):
+def create_thread(conn, boardid, filedatas, body, password, name, email, subject, ip):
     """ Submits a new thread, without value checking. 
         Args:
             boardname (str): name of the board
@@ -202,7 +203,8 @@ def create_thread(conn, boardid, filedatas, body, password, name, email, subject
                     threadid, filedatas, 
                     body, 
                     password, name, 
-                    email, subject)
+                    email, subject, 
+                    ip)
         conn.execute(threads.update().\
                 where(threads.c.id == threadid).\
                 values(op_id= postid))
