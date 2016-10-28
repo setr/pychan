@@ -8,6 +8,7 @@ import tinys3
 
 # for AWS s3
 import boto3
+import botocore
 boto3.setup_default_session(profile_name='pychan')
 
 def hashfile(afile, blocksize=65536):
@@ -60,12 +61,16 @@ def save_image(afile, isop):
     mainpath  = os.path.join(cfg.imgpath, newname)
     thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
     # no need to save the file if it already exists.
+    
     def s3_exists(mainpath): # boto3 has no exists() func for whatever reason
+        exists = True
         try:
             s3.Object(cfg.S3_BUCKET, mainpath).last_modified 
-            return True
-        except ClientError:
-            return False
+        except botocore.exceptions.ClientError as e:
+            error_code = int(e.response['Error']['Code'])
+            if error_code == 404:
+                exists = False
+        return exists
 
     if (cfg.aws and s3_exists(mainpath)) or (not cfg.aws and os.path.isfile(mainpath)):
         if cfg.allow_same_image:
