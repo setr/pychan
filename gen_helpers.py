@@ -67,7 +67,7 @@ def save_image(afile, isop):
         except ClientError:
             return False
 
-    if (aws and s3_exists(mainpath)) or (not aws and os.path.isfile(mainpath)):
+    if (cfg.aws and s3_exists(mainpath)) or (not cfg.aws and os.path.isfile(mainpath)):
         if cfg.allow_same_image:
             return basename, ext
         else:
