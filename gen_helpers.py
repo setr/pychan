@@ -103,7 +103,7 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
      else (cfg.post_thumb_max_height, cfg.post_thumb_max_width)
 
     command = []
-    if ext in cfg.imagemagick_formats:
+    if ext.lower() in cfg.imagemagick_formats:
         size = '{w}x{h}>' .format(w=w, h=h) # the > stops small images from being enlarged in imagemagick
         mainpath = mainpath + '[0]' # [0] gets page0 from the file. 
                                     # First frame of static image = the image.
@@ -122,7 +122,7 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
                         '-thumbnail' , size     ,
                         '-format'    , 'jpg'    ,
                         thumbpath]
-    elif ext in cfg.ffmpeg_formats:
+    elif ext.lower() in cfg.ffmpeg_formats:
         # don't upscale
         # take the min scaling factor
         scale='scale=iw*min(1\\,min({w}/iw\\,{h}/ih)):-1'.format(w=w, h=h)
