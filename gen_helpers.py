@@ -74,7 +74,7 @@ def save_image(afile, isop):
 
     if cfg.aws: # TODO lambda function will generate the thumbnail 
         s3 = boto3.resource('s3')
-        if s3_file_exists(s3, mainpath) and not cfg.allow_same_image):
+        if s3_file_exists(s3, mainpath) and not cfg.allow_same_image:
             raise err.BadInput('File already exists')
         # TODO stop doing this shit 
         # for now, we're being stupid as shit
