@@ -113,14 +113,14 @@ def if_board_exists(fn):
 def newthread(boardname, boardid=None):
     if 'image' not in request.files or request.files['image'].filename == '':
         raise err.BadInput('New threads must have an image')
-    return _upload(boardname, boardid)
+    return _upload(boardname, boardid=boardid)
 
 @app.route('/<boardname>/<int:threadid>/upload', methods=['POST'])
 @if_board_exists
 def newpost(boardname, threadid, boardid=None):
     if db.is_locked(threadid):
         raise err.PermDenied('Thread is locked')
-    return _upload(boardname, threadid, boardid)
+    return _upload(boardname, threadid=threadid, boardid=boardid)
 
 @app.route('/<boardname>/delete', methods=['POST'])
 @if_board_exists

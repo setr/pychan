@@ -49,9 +49,10 @@ def save_image(afile, isop):
 
     f, e = os.path.splitext(afile.filename)
     ext = e[1:] # get rid of the . in the extension
-    allowed = ext in ALLOWED_EXTENSIONS
+    allowed = ext.lower() in ALLOWED_EXTENSIONS
     if not allowed:
         raise err.BadMedia('File not allowed')
+
     basename = hashfile(afile) # returns hex
     basename = str(int(basename[:16], 16)) # more or less like 4chan; 16char name
     newname = "%s.%s" % (basename, ext)
