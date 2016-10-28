@@ -40,8 +40,8 @@ def delete_file(fname, fext):
         s3.Object(cfg.S3_BUCKET, thumbpath).delete()
     else: # the file is stored locally, so we'll have to delete it there
         try:
-            os.remove(mainfile)
-            os.remove(thumbfile)
+            os.remove(mainpath)
+            os.remove(thumbpath)
         except OSError: ##TODO
             raise
 
@@ -84,8 +84,8 @@ def save_image(afile, isop):
         s3.Object(cfg.S3_BUCKET, mainpath).put(Body=open(mainpath, 'rb'))
         s3.Object(cfg.S3_BUCKET, thumbpath).put(Body=open(thumbpath, 'rb'))
         try:
-            os.remove(mainfile)
-            os.remove(thumbfile)
+            os.remove(mainpath)
+            os.remove(thumbpath)
         except OSError:
             raise
     else:
