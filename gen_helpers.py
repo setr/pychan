@@ -62,7 +62,7 @@ def save_image(afile, isop):
     thumbpath = os.path.join(cfg.thumbpath, '%s.%s' % (basename, 'jpg'))
     # no need to save the file if it already exists.
     
-    def s3_exists(mainpath): # boto3 has no exists() func for whatever reason
+    def s3_file_exists(s3, mainpath): # boto3 has no exists() func for whatever reason
         exists = True
         try:
             s3.Object(cfg.S3_BUCKET, mainpath).last_modified 
@@ -72,14 +72,10 @@ def save_image(afile, isop):
                 exists = False
         return exists
 
-    if (cfg.aws and s3_exists(mainpath)) or (not cfg.aws and os.path.isfile(mainpath)):
-        if cfg.allow_same_image:
-            return basename, ext
-        else:
-            raise err.BadInput('File already exists')
-
     if cfg.aws: # TODO lambda function will generate the thumbnail 
         s3 = boto3.resource('s3')
+        if s3_file_exists(s3, mainpath) and not cfg.allow_same_image):
+            raise err.BadInput('File already exists')
         # TODO stop doing this shit 
         # for now, we're being stupid as shit
         # locally saving the file, generating the thumbnail, uploading the thumb
@@ -93,6 +89,8 @@ def save_image(afile, isop):
         except OSError:
             raise
     else:
+        if os.path.isfile(mainpath) and not cfg.allow_same_image:
+            raise err.BadInput('File already exists')
         _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
 
     return basename, ext
