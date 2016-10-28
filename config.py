@@ -14,7 +14,7 @@ debug = False
 # Master/Slave URIs, if replicating the DB.
 # Master should handle writes, and any reads immediately following a write
 # Only pure reads should use the slave.
-master = "sqlite://../db1.sqlite"
+master = "sqlite:////var/www/pychan.sqlite3"
 slave  = None # if None, slave == master aka there is only one db.
 
 # board configs
