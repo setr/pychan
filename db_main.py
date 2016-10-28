@@ -679,5 +679,7 @@ def makedata():
 if __name__ == '__main__':
     #db.create_db()
     db.reset_db()
-    makedata()
+    create_board('g', 'stem', '')
+    create_board('m', 'art & architecture', '')
+    #makedata()
 
