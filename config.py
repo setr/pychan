@@ -72,3 +72,8 @@ S3_SECRET_KEY = ''
 
 imgpath = 'static/src/imgs/'   ## where the full-size image is stored
 thumbpath = 'static/src/thumb/' ## thumbnails (always jpg's)
+
+themes = [
+        'tea.css',
+        'ashita.css'
+        ]

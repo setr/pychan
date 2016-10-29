@@ -86,7 +86,8 @@
             <br>
             <select id="theme">    
                 # for css in cfg.themes
-                    <option value={{css}}>{{css}}</option>
+                    {% set url= url_for('statis', filename='css/'+css+'.css') %}
+                    <option value={{url}} > {{css}} </option>
                 # endfor
             </select>
             <label for="theme">Theme</label>
