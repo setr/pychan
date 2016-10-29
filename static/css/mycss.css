@@ -20,6 +20,8 @@ article{
     margin: 0 0 -10px;
 }
 #options { margin-right: 1vw }
+#options-panel{ display: none; }
+
 .replyname, .replyemail, .threadsubject{
     background-color: rgba(0,0,0,0);
     color: #c5c8c6;
