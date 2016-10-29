@@ -35,6 +35,9 @@
             {% endfor %}
             <hr>
             </section> ## END OF THREAD
+            <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
+                <a>Reply</a>
+            </aside>
         {% endfor %} 
         </threads>
         {{ sections.footer(isThread=False) }}

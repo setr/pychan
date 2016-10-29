@@ -43,7 +43,7 @@ function hide_postlist(){
 hide_postlist()
     
 // reply form injection
-function createTrailer(article, replyform){
+function createTrailer(article, replyform, threadid){
     var form = $("<form/>",
                    {method: 'post',
                     enctype:'multipart/form-data',
@@ -68,6 +68,11 @@ function createTrailer(article, replyform){
             {type:'hidden',
                 name:'password',
                 id:'password'});
+    var tid  = $("<input/>",
+            {type:'hidden',
+                name:'threadid',
+                id:'threadid',
+                val: threadid});
             // meguca uses an image to represent spoiler selection
             //default => style="background-image: url("https://meguca.org/static/css/ui/pane.png");" 
             //clicked => style="background-image: url("https://meguca.org/static/spoil/spoil5.png");"
@@ -90,6 +95,9 @@ function createTrailer(article, replyform){
                 spoiler,
                 upload,
                 hiddenpass)
+    if (threadid) {
+        form.append(tid);
+    }
     return form;
 }
 
@@ -126,6 +134,12 @@ function createformheader(isthread){
     
 function createarticle(replyform, isthread){
     replyform.css("display", "none")
+    if (isthread) {
+        threadid = replyform.parent().attr('id');
+    } else {
+        threadid = null;
+    }
+
     //surrounding post-block for form
     var article = $("<article/>");
     var header = createformheader(isthread);
@@ -142,7 +156,7 @@ function createarticle(replyform, isthread){
                              style: 'width:400px; max-width: 90%; height: 40px;',
                              maxlength: '2000'}).autogrow({flickering: false}));
     var small = $("<small/>");
-    var form = createTrailer(article, replyform);
+    var form = createTrailer(article, replyform, threadid);
     form.prepend(header,
                 blockquote,
                 small)

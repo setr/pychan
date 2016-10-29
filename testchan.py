@@ -113,6 +113,9 @@ def if_board_exists(fn):
 def newthread(boardname, boardid=None):
     if 'image' not in request.files or request.files['image'].filename == '':
         raise err.BadInput('New threads must have an image')
+    threadid = request.form.get('threadid')
+    if threadid:
+        return redirect(url_for('newpost', boardname=boardname, thread=threadid, boardid=boardid))
     return _upload(boardname, boardid=boardid)
 
 @app.route('/<boardname>/<int:threadid>/upload', methods=['POST'])
