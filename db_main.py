@@ -219,7 +219,7 @@ def parse_post(boardname, boardid, body, post_id, fpid):
         # searching after the post was escaped.
     f_ref = escape('>>(\d+)(\s)?')   # >>123123
     f_spoil = escape('><(.*)><')     # >< SPOILERED ><
-    f_imply = escape('>.+')          # >implying
+    f_imply = escape('^>(?!>).+')     # >implying
 
     f_ref=   re.compile(f_ref)
     f_spoil= re.compile(f_spoil, re.DOTALL) 
