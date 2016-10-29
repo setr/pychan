@@ -204,7 +204,8 @@ def create_thread(conn, boardid, filedatas, body, password, name, email, subject
                     body, 
                     password, name, 
                     email, subject, 
-                    ip)
+                    sage=False,
+                    ip=ip)
         conn.execute(threads.update().\
                 where(threads.c.id == threadid).\
                 values(op_id= postid))

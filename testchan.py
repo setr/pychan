@@ -201,9 +201,9 @@ def _upload(boardname, threadid=None, boardid=None):
 
     if isop: 
         # ops cannot be made saged by normal usage.
-        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject, ip)
+        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject, ip=ip)
     else:
-        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage, ip)
+        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage, ip=ip)
 
     # Special case: posts may >>pid posts that do not actually exist yet. 
     # If they reference the pid we _just_ created, then we'll have to 
