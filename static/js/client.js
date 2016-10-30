@@ -19,7 +19,7 @@ function getCookieVal(key){
 }
 // cookie defaults
 defaults = {'spoilers': false,
-            'themepicked': ('#theme option:first-child').val() ,
+            'themepicked': $('#theme option:first-child').val() ,
             'hidden':  [],
             'pass':    Math.random().toString(36).substr(2,16),
            }
