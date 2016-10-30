@@ -19,7 +19,7 @@ function getCookieVal(key){
 }
 // cookie defaults
 defaults = {'spoilers': false,
-            'css':     'ashita',
+            'themepicked': ('#theme option:first-child').val() ,
             'hidden':  [],
             'pass':    Math.random().toString(36).substr(2,16),
            }
@@ -31,6 +31,7 @@ $.each(defaults, function(key, val) {
         
 $('#pass').val(getCookieVal('pass')); // password at the bottom of page
 $('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
+$('#theme').val(getCookieVal('themepicked'));
 
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
@@ -281,6 +282,12 @@ $('[data-content^=tab-]').click( function() {
     var tab = '.' + this.dataset.content;
     $(tab).addClass('tab_sel')
 });
+
+$('#theme').change(function() {
+    var newtheme = $(this).val();
+    Cookies.set('themepicked', newtheme);
+    $('#themepicked').attr('src', newtheme);
+}
 
 $('#spoilers').change( function () {
     var checked = this.checked;

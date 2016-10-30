@@ -2,16 +2,16 @@
 
 {% macro header() %}
     {% set base = url_for('static', filename='css/base.css') %}
-    {% set ashita = url_for('static', filename='css/tea.css') %}
+    {% set theme = url_for('static', filename='css/tea.css') %}
     {% set mycss = url_for('static', filename='css/mycss.css') %}
     {% set clientjs= url_for('static', filename='js/client.js') %}
     {% set autogrow= url_for('static', filename='js/autogrow.js') %}
     {% set cookies= url_for('static', filename='js/cookies.js') %}
     
     <head>
-        <link rel="stylesheet" id="theme" href="{{ base }}">
-        <link rel="stylesheet" id="theme" href="{{ ashita }}">
-        <link rel="stylesheet" id="theme" href="{{ mycss }}">
+        <link rel="stylesheet"                  href="{{ base }}">
+        <link rel="stylesheet" id="themepicked" href="{{ theme }}">
+        <link rel="stylesheet"                  href="{{ mycss }}">
         <!-- pull jquery from google instead of ourselves, because it'll be cached from other sites too -->
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
         <script type="text/javascript" src="{{ clientjs }}"></script>
