@@ -287,7 +287,7 @@ $('#theme').change(function() {
     var newtheme = $(this).val();
     Cookies.set('themepicked', newtheme);
     $('#themepicked').attr('src', newtheme);
-}
+});
 
 $('#spoilers').change( function () {
     var checked = this.checked;
