@@ -286,7 +286,7 @@ $('[data-content^=tab-]').click( function() {
 $('#theme').change(function() {
     var newtheme = $(this).val();
     Cookies.set('themepicked', newtheme);
-    $('#themepicked').attr('src', newtheme);
+    $('#themepicked').attr('href', newtheme);
 });
 
 $('#spoilers').change( function () {
