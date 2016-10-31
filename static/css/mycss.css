@@ -4,11 +4,23 @@ article{
     min-width: 300px;
 }
 .act:before{
-    content: "[ ";
+    content: "[";
 }
 .act:after{
-    content: " ]";
+    content: "]";
 }
+
+h1 img[src=""] { /* for bannerless */
+    display: none;
+}
+/*
+header h3::before{
+    content:'「'
+}
+header h3::after{
+    content:'」'
+}
+*/
 
 #navTop::before { content: '[ ';}
 #navTop a:last-child::after { content: ' ]'; }
