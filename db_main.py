@@ -497,10 +497,14 @@ def fetch_backrefs(postid, engine):
 
 #TODO: db_cud.mark_thread_dead
 @with_db(master)
-def mark_thread_autosage(threadid, engine=None):
+def mark_thread_autosage(op_id, engine=None):
+    """ given the real postid of the thread's op, mark the thread as autosage.
+        Args:
+            op_id (id): real post_id of the op"""
+
     with connection(engine) as conn:
         db_cud.mark_thread_dead(conn, threadid)
-    engine.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
+    engine.execute(threads.update().where(threads.c.op_id == op_id).values(alive = False))
     return True
     
 @with_db(master)

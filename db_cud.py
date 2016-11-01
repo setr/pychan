@@ -166,9 +166,9 @@ def cleanup_threads(boardid, conn=None):
     return success
 
 # for use by mods
-def mark_thread_dead(conn, threadid):
+def mark_thread_dead(conn, op_id):
     with transaction(conn):
-        conn.execute(threads.update().where(threads.c.id == threadid).values(alive = False))
+        conn.execute(threads.update().where(threads.c.op_id == op_id).values(alive = False))
     return True
     
 def create_thread(conn, boardid, filedatas, body, password, name, email, subject, ip):
