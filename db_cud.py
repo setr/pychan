@@ -194,11 +194,11 @@ def create_thread(conn, boardid, filedatas, body, password, name, email, subject
     # thread op = new post
     # delete any threads that fell off the board
     with transaction(conn):
-        true = str(sqlalchemy.true())
+        #true = str(sqlalchemy.true())
         threadid = conn.execute(threads.insert().values(
                      board_id= boardid, 
-                     alive=true,
-                     sticky=true)).inserted_primary_key[0]
+                     alive=True,
+                     sticky=False)).inserted_primary_key[0]
         postid,fakeid = create_post(conn, boardid,
                     threadid, filedatas, 
                     body, 
