@@ -12,8 +12,8 @@ def cli():
 def delete_post(boardname, postids):
     boardid = db.get_boardid(boardname)
     for pid in postids:
-        real_pid = db_main._get_realpostid(boardid, pid)
-        db_main.delete_post(real_pid, "", ismod=True)
+        real_pid = db._get_realpostid(boardid, pid)
+        db.delete_post(real_pid, "", ismod=True)
 
 @click.command()
 @click.argument("board", required=True)
@@ -21,17 +21,20 @@ def delete_post(boardname, postids):
 def autosage(boardname, postids):
     boardid = db.get_boardid(boardname)
     for pid in postids:
-        real_pid = db_main._get_realpostid(boardid, pid)
-        db_main.mark_thread_autosage(real_pid)
+        real_pid = db._get_realpostid(boardid, pid)
+        db.mark_thread_autosage(real_pid)
 
 @click.command()
 @click.argument("boardname", required=True)
 @click.argument("subtitle", required=True)
 @click.argument("slogan", default="", required=False)
-def newboard(boardname, subtitle, slogan):
-    db_main.create_board(boardname, subtitle, slogan)
+def new_board(boardname, subtitle, slogan):
+    db.create_board(boardname, subtitle, slogan)
 
 if __name__ == '__main__':
+    cli.add_command(delete_post)
+    cli.add_command(autosage)
+    cli.add_command(new_board)
     cli()
 
 
