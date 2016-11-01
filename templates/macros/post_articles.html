@@ -13,13 +13,13 @@
     <header>
         <input type="checkbox" class="postCheckbox">
         <span class="control">▶</span>
-        {% if isop %} <!-- subject is for threads only, at least for now -->
-        # if post.subject:    
-        <h3>「{{ post.subject }}」</h3>
-        # else:
-        <h3></h3>
-
-        {% endif %}
+        # if isop <!-- subject is for threads only, at least for now -->
+            # if post.subject:    
+            <h3>「{{ post.subject }}」</h3>
+            # else:
+            <h3></h3>
+            #endif
+        # endif
         <b class="name"> {{ post.name }} </b>
         <time title="{{post.timestamp}}"> {{post.h_time}}</time>
         <nav>
@@ -42,9 +42,9 @@
             {% set rid = r.tail %}
             {% set tid = r.thread_id %}
 
-            {% if rid %} {# if no rid, the backref was from a different board #}
+            # if rid {# if no rid, the backref was from a different board #}
             <a href="/{{boardname}}/{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
-            {% endif %}
+            # endif
         {% endfor %}
     </small>
 {%- endmacro %}
