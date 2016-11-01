@@ -24,6 +24,13 @@ def autosage(boardname, postids):
         real_pid = db_main._get_realpostid(boardid, pid)
         db_main.mark_thread_autosage(real_pid)
 
+@click.command()
+@click.argument("boardname", required=True)
+@click.argument("subtitle", required=True)
+@click.argument("slogan", default="", required=False)
+def newboard(boardname, subtitle, slogan):
+    db_main.create_board(boardname, subtitle, slogan)
+
 if __name__ == '__main__':
     cli()
 
