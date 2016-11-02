@@ -23,8 +23,8 @@ header h3::after{
 */
 
 #navTop::before { content: '[';}
-#navTop div:last-child::after { content: ']'; }
-#navTop div::after { content: ' / '; }
+#navTop span:last-child::after { content: ']'; }
+#navTop span::after { content: ' / '; }
 #banner_info { margin-left: 5em; position: relative; }
 
 #trans{
