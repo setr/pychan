@@ -2,14 +2,10 @@
 
 {% macro banner() %}
 <span id="banner">
-<b id="navTop">
-    ## from the config file
-    # for name, link in cfg.boardlinks  
-    <span>
-        <a href="{{link}}">{{name}}</a>
-    </span>
-    # endfor
-</b>
+## required with this formatting else it adds a space
+## boardlinks
+<b id="navTop">{% for name, link in cfg.boardlinks %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}</b>
+
 
 <a id="options" class="bfloat" title="Options"> 
     <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8">
