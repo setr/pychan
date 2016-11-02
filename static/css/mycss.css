@@ -25,6 +25,7 @@ header h3::after{
 #navTop::before { content: '[';}
 #navTop div:last-child::after { content: ']'; }
 #navTop div::after { content: ' / '; }
+#banner_info { margin-left: 5em; position: relative; }
 
 #trans{
     max-width: 90%;
