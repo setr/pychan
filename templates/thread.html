@@ -13,25 +13,29 @@
         <!-- meguca doesn't use slogans? -->
         <span class="act"><a href="#bottom">Bottom</a></span>
         <span class="act"><a href="" id="expandImages">Expand Images</a></span>
-        <hr>
+            ## OP START
             {% set op = thread[0] %}
             {% set tid = op.thread_id %}
             <section id={{ tid }}>
             {{ posts.article(tit, tid, op, isop=True) }}
-            <hr> ## END OF OP
+            ## END OF OP
             
+            ## REPLIES START
             {% for post in thread[1:] %}
                 <article id="{{ post.id }}">
                 {{ posts.article(tit, tid, post, isop=False) }}
                 </article>
             {% endfor %}
+            ## END REPLIES
             
+            ## REPLY BOX
             <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
+            ## END REPLY
 
-            <hr>
             </section> ## END OF THREAD
+        <hr>
         </threads>
         {{ sections.footer(isThread=True, tit=tit) }}
     </body>

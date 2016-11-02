@@ -20,7 +20,6 @@
         <aside class="act posting board"> 
             <a >New Thread</a>
         </aside>
-        <hr>
         {% for thread in threads %}
             {% set op = thread[0] %}
             {% set tid = op.thread_id %}
@@ -33,13 +32,12 @@
                 {{ posts.article(tit, tid, post, isop=False) }}
                 </article>
             {% endfor %}
-            <hr>
 
             <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
-
             </section> ## END OF THREAD
+            <hr>
         {% endfor %} 
         </threads>
         {{ sections.footer(isThread=False) }}
