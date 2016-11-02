@@ -25,7 +25,7 @@
             {% set tid = op.thread_id %}
             <section id={{ tid }}>
             {{ posts.article(tit, tid, op, isop=True, counts=counts[loop.index-1]) }}
-            <hr> ## END OF OP
+            ## END OF OP
             
             {% for post in thread[1:] %}
                 <article id="{{ post.id }}">
