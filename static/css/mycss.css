@@ -22,9 +22,9 @@ header h3::after{
 }
 */
 
-#navTop::before { content: '[ ';}
-#navTop a:last-child::after { content: ' ]'; }
-#navTop a::after { content: ' / '; }
+#navTop::before { content: '[';}
+#navTop div:last-child::after { content: ']'; }
+#navTop div::after { content: ' / '; }
 
 #trans{
     max-width: 90%;
