@@ -1,6 +1,7 @@
 {% import 'macros/post_articles.html' as posts %}
 {% import 'macros/sections.html' as sections %}
 {% import 'macros/banner.html' as banner %}
+{% import 'macros/reply.html' as reply %}
 <!DOCTYPE html>
 <html lang="en">
     {{ sections.header() }}
@@ -33,6 +34,7 @@
             <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
+            {{ reply.postform(tit) }}
             ## END REPLY
 
             </section> ## END OF THREAD

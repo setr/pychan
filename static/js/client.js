@@ -8,6 +8,11 @@ $(document).ready(function () {
 //          event.target.classList.toggle('reveal');
 //          });
 
+// useful aliasing
+var _qsa = document.querySelectorAll.bind(document);
+var _qs = document.querySelector.bind(document);
+var _qid = document.getElementById.bind(document);
+var _qsc = document.getElementsByClassName.bind(document);
 // autoconvert strings to real values
 function getCookieVal(key){
     var temp = Cookies.get(key);
@@ -19,7 +24,7 @@ function getCookieVal(key){
 }
 // cookie defaults
 defaults = {'spoilers': false,
-            'themepicked': $('#theme option:first-child').val() ,
+            'themepicked': _qs('#theme option:first-child').val() ,
             'hidden':  [],
             'pass':    Math.random().toString(36).substr(2,16),
            }
@@ -29,16 +34,16 @@ $.each(defaults, function(key, val) {
     }
 });
         
-$('#pass').val(getCookieVal('pass')); // password at the bottom of page
-$('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
-$('#theme').val(getCookieVal('themepicked'));
+_qid('#pass').val(getCookieVal('pass')); // password at the bottom of page
+_qid('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
+_qid('#theme').val(getCookieVal('themepicked'));
 
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
     var postids = Cookies.getJSON('hidden');
-    $("article, section").each( function() {
+    _qsa("article, section").each( function() {
       var id = this.id;
-      if ($.inArray(id, postids) > -1) {
+      if (postids.indexOf(id) != -1) {
         $(this).remove()
       }});}
 hide_postlist()
@@ -165,25 +170,46 @@ function createarticle(replyform, isthread){
 
     return article; }
 
-// Inject New thread form on click
-$(".act.posting.board").each(function () {
-    // create form on clicking [Reply]
-    $(this).click(function() {
-        $(this).before(createarticle( $(this), true ));
-        $('html, body').scrollTop(0); // scroll to top 
-        });
+// NEED TO APPLY TO POST FORMS
+_qsa(".act.posting.thread, .act.posting.board").forEach(function () {
+    var button = this; // button = [New Reply] || [New Thread]
+    var replyform = button.nextSibling;
+    // hide the button, show the form
+    button.addEventListener('click', function () {
+        button.display = 'none';
+        replyform.display = 'table';
+    });
+    // hide the form, show the button
+    var cancel = replyform.getElementsByClassName("form_cancel")[0];
+    cancel.addEventListener('click', function() {
+        button.display = 'table';
+        replyform.display = 'none';
+        replyform.reset(); // resets all elements in the form; magic ~~~~
     });
 
-// Inject reply form on click
-$(".act.posting.thread").each(function () {
-    // create form on clicking [Reply]
-    $(this).click(function() {
-        $(this).before(createarticle( $(this), false ));
-        $('html, body').scrollTop( $(document).height() ); // scroll to bottom, because the reply form gets hidden
-        });
+    // submit w/ the pass from bottom right
+    var submit = replyform.getElementsByClassName("form_submit")[0];
+    var password = replyform.getElementsByClassName("form_password")[0];
+    submit.addEventListener('click', function() {
+        var pass = _qid('pass').val();
+        if (pass.trim() && getCookieVal('pass') != pass){
+            Cookies.set('pass', pass);
+            password.val(pass);
+        } else {
+            password.val(getCookieVal('pass'));
+        }
     });
 
-// image inline expandsion
+    // make the textarea dynamically grow on user input
+    var textarea = replyform.getElementsByClassName("form_trans")[0];
+    textarea.addEventListener('click', function() {
+        this.autogrow({flicking: false});
+    });
+
+});
+
+
+// image inline expansion
 // expanded images are injected so that we only load the full version
 // if the thumbnail is clicked on.
 // pdfs don't get expanded; the browser will handle opening it.

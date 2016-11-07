@@ -1,6 +1,8 @@
 {% import 'macros/post_articles.html' as posts %}
 {% import 'macros/sections.html' as sections %}
 {% import 'macros/banner.html' as banner %}
+{% import 'macros/reply.html' as reply %}
+
 <!DOCTYPE html>
 <html lang="en">
     {{ sections.header() }}
@@ -20,6 +22,8 @@
         <aside class="act posting board"> 
             <a >New Thread</a>
         </aside>
+        {{ reply.postform(None) }}
+
         {% for thread in threads %}
             {% set op = thread[0] %}
             {% set tid = op.thread_id %}
@@ -36,6 +40,7 @@
             <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
+            {{ reply.postform(tid) }}
             </section> ## END OF THREAD
             <hr>
         {% endfor %} 
