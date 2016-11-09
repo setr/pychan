@@ -168,7 +168,7 @@ function createarticle(replyform, isthread){
 // NEED TO APPLY TO POST FORMS
 document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(function () {
     var button = this; // button = [New Reply] || [New Thread]
-    var replyform = button.nextSibling;
+    var replyform = button.nextElementSibling;
     // hide the button, show the form
     button.addEventListener('click', function () {
         button.display = 'none';
