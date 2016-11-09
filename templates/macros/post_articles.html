@@ -83,13 +83,14 @@
         <figure>
             <figcaption>
             <!-- imgsearch urls -->
-            </figcaption> 
+            <a target="_blank" rel="nofollow" class="imageSearch google" href="https://www.google.com/searchbyimage?image_url={{linkf}}">G</a>
             <i>
                 <!-- image stats -->
                 <a href="{{ linkf }}" rel="nofollow" download="{{linkf}}">
                     {{f.filename}}
                 </a>
             </i>
+            </figcaption> 
             <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{mainclass}}" href="{{ linkf }}">
                 ## pdfs will also have an image thumbnail but won't inline expand (due to class='pdf')
                 <img src="{{linkt}}" class="{{thumbclass}}" style="max-width:{{width}}; max-height:{{height}}">
