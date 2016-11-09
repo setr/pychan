@@ -10,6 +10,9 @@
 {% macro _header(boardname, threadid, post, isop=false )%} 
     {% set tid = threadid %}
     {% set pid = post.fake_id %}
+    # if not post.name
+        post.name = "Anonymous"
+    # endif
     <header>
         <input type="checkbox" class="postCheckbox">
         <span class="control">▶</span>
@@ -21,7 +24,7 @@
             <h3></h3>
             #endif
         # endif
-        <b class="name"> {{ post.name }} </b>
+        <a class="nope"> <b> {{ post.name }} </b> </a>
         <time title="{{post.timestamp}}"> {{post.h_time}}</time>
         <nav>
             <a href="/{{boardname}}/{{tid}}#{{pid}}" class="history">No.</a> <!-- tid == pid for threads -->
