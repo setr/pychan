@@ -218,7 +218,7 @@ def parse_post(boardname, boardid, body, post_id, fpid):
         # instead, you'll have to use the html sequences in the regex.
         # searching after the post was escaped.
     f_ref = escape('>>(\d+)(\s)?')   # >>123123
-    f_spoil = escape('><(.*)><')     # >< SPOILERED ><
+    f_spoil = escape('\*(.*?)\*')     # >< SPOILERED ><
     f_imply = escape('^>(?!>).+')     # >implying
 
     f_ref=   re.compile(f_ref)
