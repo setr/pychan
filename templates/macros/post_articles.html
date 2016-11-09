@@ -122,6 +122,9 @@
     # if counts:
         {% set postcount = counts[0] %}
         {% set imgcount = counts[1] if counts[1] else 0 %}
-        <span class="omit"> {{postcount}} replies and {{imgcount}} images omitted </span>
+        ## don't say anything if the thread doesn't have anything hidden.
+        # if postcount:
+            <span class="omit"> {{postcount}} replies and {{imgcount}} images omitted </span>
+        # endif
     # endif
 {%- endmacro %}
