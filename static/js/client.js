@@ -9,10 +9,10 @@ $(document).ready(function () {
 //          });
 
 // useful aliasing
-var _qsa = document.querySelectorAll.bind(document);
-var _qs = document.querySelector.bind(document);
-var _qid = document.getElementById.bind(document);
-var _qsc = document.getElementsByClassName.bind(document);
+var document.querySelectorAll = document.querySelectorAll.bind(document);
+var document.querySelector = document.querySelector.bind(document);
+var document.getElementById = document.getElementById.bind(document);
+var document.getElementsByClassName = document.getElementsByClassName.bind(document);
 // autoconvert strings to real values
 function getCookieVal(key){
     var temp = Cookies.get(key);
@@ -24,7 +24,7 @@ function getCookieVal(key){
 }
 // cookie defaults
 defaults = {'spoilers': false,
-            'themepicked': _qs('#theme option:first-child').val() ,
+            'themepicked': document.querySelector('#theme option:first-child').val() ,
             'hidden':  [],
             'pass':    Math.random().toString(36).substr(2,16),
            }
@@ -34,14 +34,14 @@ $.each(defaults, function(key, val) {
     }
 });
         
-_qid('#pass').val(getCookieVal('pass')); // password at the bottom of page
-_qid('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
-_qid('#theme').val(getCookieVal('themepicked'));
+document.getElementById('#pass').val(getCookieVal('pass')); // password at the bottom of page
+document.getElementById('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
+document.getElementById('#theme').val(getCookieVal('themepicked'));
 
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
     var postids = Cookies.getJSON('hidden');
-    _qsa("article, section").each( function() {
+    document.querySelectorAll("article, section").each( function() {
       var id = this.id;
       if (postids.indexOf(id) != -1) {
         $(this).remove()
@@ -171,7 +171,7 @@ function createarticle(replyform, isthread){
     return article; }
 
 // NEED TO APPLY TO POST FORMS
-_qsa(".act.posting.thread, .act.posting.board").forEach(function () {
+document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(function () {
     var button = this; // button = [New Reply] || [New Thread]
     var replyform = button.nextSibling;
     // hide the button, show the form
@@ -191,7 +191,7 @@ _qsa(".act.posting.thread, .act.posting.board").forEach(function () {
     var submit = replyform.getElementsByClassName("form_submit")[0];
     var password = replyform.getElementsByClassName("form_password")[0];
     submit.addEventListener('click', function() {
-        var pass = _qid('pass').val();
+        var pass = document.getElementById('pass').val();
         if (pass.trim() && getCookieVal('pass') != pass){
             Cookies.set('pass', pass);
             password.val(pass);
