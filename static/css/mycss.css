@@ -53,7 +53,7 @@ header h3::after{
 
 .replyname, .replyemail, .threadsubject{
     background-color: rgba(0,0,0,0);
-    color: #c5c8c6;
+    /*color: #c5c8c6;*/ color:inherit;
     border: none;
     height: inherit;
     font-family: Arial,Helvetica,sans-serif;
