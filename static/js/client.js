@@ -171,14 +171,14 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
     var replyform = button.nextElementSibling;
     // hide the button, show the form
     button.addEventListener('click', function () {
-        button.display = 'none';
-        replyform.display = 'table';
+        button.style.display = 'none';
+        replyform.style.display = 'table';
     });
     // hide the form, show the button
     var cancel = replyform.getElementsByClassName("form_cancel")[0];
     cancel.addEventListener('click', function() {
-        button.display = 'table';
-        replyform.display = 'none';
+        button.style.display = 'table';
+        replyform.style.display = 'none';
         replyform.reset(); // resets all elements in the form; magic ~~~~
     });
 
