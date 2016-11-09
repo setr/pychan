@@ -11,7 +11,7 @@
     {% set tid = threadid %}
     {% set pid = post.fake_id %}
     # if not post.name
-        post.name = "Anonymous"
+        {% set post.name = "Anonymous" %}
     # endif
     <header>
         <input type="checkbox" class="postCheckbox">
