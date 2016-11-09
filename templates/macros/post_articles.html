@@ -84,6 +84,12 @@
             <figcaption>
             <!-- imgsearch urls -->
             </figcaption> 
+            <i>
+                <!-- image stats -->
+                <a href="{{ linkf }}" rel="nofollow" download="{{linkf}}">
+                    {{f.filename}}
+                </a>
+            </i>
             <a target="_blank" rel="nofollow" id="{{f.filename}}" class="{{mainclass}}" href="{{ linkf }}">
                 ## pdfs will also have an image thumbnail but won't inline expand (due to class='pdf')
                 <img src="{{linkt}}" class="{{thumbclass}}" style="max-width:{{width}}; max-height:{{height}}">
