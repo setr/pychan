@@ -8,11 +8,6 @@ $(document).ready(function () {
 //          event.target.classList.toggle('reveal');
 //          });
 
-// useful aliasing
-var document.querySelectorAll = document.querySelectorAll.bind(document);
-var document.querySelector = document.querySelector.bind(document);
-var document.getElementById = document.getElementById.bind(document);
-var document.getElementsByClassName = document.getElementsByClassName.bind(document);
 // autoconvert strings to real values
 function getCookieVal(key){
     var temp = Cookies.get(key);
