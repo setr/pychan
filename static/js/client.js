@@ -19,7 +19,7 @@ function getCookieVal(key){
 }
 // cookie defaults
 defaults = {'spoilers': false,
-            'themepicked': document.querySelector('#theme option:first-child').val() ,
+            'themepicked': document.querySelector('#theme option:first-child').value ,
             'hidden':  [],
             'pass':    Math.random().toString(36).substr(2,16),
            }
@@ -29,9 +29,9 @@ $.each(defaults, function(key, val) {
     }
 });
         
-document.getElementById('#pass').val(getCookieVal('pass')); // password at the bottom of page
-document.getElementById('#spoilers').prop('checked', getCookieVal('spoilers')); // unspoiler images?
-document.getElementById('#theme').val(getCookieVal('themepicked'));
+document.getElementById('pass').value = getCookieVal('pass'); // password at the bottom of page
+document.getElementById('spoilers').checked = getCookieVal('spoilers');
+document.getElementById('theme').value = getCookieVal('themepicked');
 
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
