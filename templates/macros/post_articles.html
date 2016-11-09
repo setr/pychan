@@ -70,6 +70,7 @@
 
     # for f in filelist:
         {% set tf = f.filename + '.jpg' %} 
+        {% set mf = f.filename + '.' + f.filetype %}
         {% set thumbclass = 'thumb spoiler' if f.spoilered else 'thumb' %}
         
         # if f.filetype == 'webm':
@@ -80,18 +81,18 @@
             {% set mainclass = 'image' %}
         # endif
 
-        {% set thumbf = "src/thumb/" + tf %} ## this should be changed to cfg.option
-        {% set mainf = "src/imgs/" + f.filename + '.' + f.filetype %} ## this should be changed to cfg.option
+        {% set thumbf = "src/thumb/" + tf %} ## TODO this should be changed to cfg.option
+        {% set mainf = "src/imgs/" + mf %} ## TODO this should be changed to cfg.option
         {% set linkt = url_for('static', filename= thumbf) %}
         {% set linkf = url_for('static', filename= mainf) %}
         <figure>
             <figcaption>
             <!-- imgsearch urls -->
-            <a target="_blank" rel="nofollow" class="imageSearch google" href="https://www.google.com/searchbyimage?image_url={{linkf}}">G</a>
+            <a target="_blank" rel="nofollow" class="imageSearch google" href="https://www.google.com/searchbyimage?image_url={{linkf}}" style="display:initial">G</a>
             <i>
                 <!-- image stats -->
                 <a href="{{ linkf }}" rel="nofollow" download="{{linkf}}">
-                    {{f.filename}}
+                    {{mf}}
                 </a>
             </i>
             </figcaption> 
