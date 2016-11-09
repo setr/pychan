@@ -28,11 +28,26 @@ header h3::after{
 #navTop span:last-child::after { content: ']'; }
 #banner_info { margin-left: 7em; position: relative; }
 
-#trans{
+.form_trans{ /* the textarea */
     max-width: 90%;
     height: 40px;
     margin: 0 0 -10px;
+
+    display: inline;
+    margin: 0 0 -3px;
+    overflow-y: hidden;
+    resize: none;
+    text-wrap: none;
+    vertical-align: baseline;
 }
+.form_toggle{ /* the spoiler button */
+    background: url(ui/pane.png) transparent;
+    background-size: 78px 19px;
+    border: 0;
+    height: 19px;
+    width: 78px;
+}
+
 #options { margin-right: 1vw }
 #options-panel{ display: none; }
 
