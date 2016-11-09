@@ -36,7 +36,7 @@ document.getElementById('theme').value = getCookieVal('themepicked');
 //hide user-specified hidden post/threads as soon as the page loads
 function hide_postlist(){
     var postids = Cookies.getJSON('hidden');
-    document.querySelectorAll("article, section").each( function() {
+    document.querySelectorAll("article, section").forEach( function() {
       var id = this.id;
       if (postids.indexOf(id) != -1) {
         $(this).remove()
@@ -186,7 +186,7 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
     var submit = replyform.getElementsByClassName("form_submit")[0];
     var password = replyform.getElementsByClassName("form_password")[0];
     submit.addEventListener('click', function() {
-        var pass = document.getElementById('pass').val();
+        var pass = document.getElementById('pass').value;
         if (pass.trim() && getCookieVal('pass') != pass){
             Cookies.set('pass', pass);
             password.val(pass);
