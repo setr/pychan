@@ -166,8 +166,8 @@ function createarticle(replyform, isthread){
     return article; }
 
 // NEED TO APPLY TO POST FORMS
-document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(function () {
-    var button = this; // button = [New Reply] || [New Thread]
+document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(function (button) {
+    // button = [New Reply] || [New Thread]
     var replyform = button.nextElementSibling;
     // hide the button, show the form
     button.addEventListener('click', function () {
