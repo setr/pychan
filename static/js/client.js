@@ -179,7 +179,8 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
     cancel.addEventListener('click', function() {
         button.style.display = 'table';
         replyform.style.display = 'none';
-        replyform.reset(); // resets all elements in the form; magic ~~~~
+        // firstchild = the actual form
+        replyform.firstChild.reset(); // resets all elements in the form; magic ~~~~
     });
 
     // submit w/ the pass from bottom right
@@ -196,12 +197,21 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
     });
 
     // make the textarea dynamically grow on user input
+    // eventually switch to native js autogrow
+    // https://github.com/CodingAspect/Textarea-Autogrow
+    /*
     var textarea = replyform.getElementsByClassName("form_trans")[0];
+    Autogrow(textarea)
+
     textarea.addEventListener('click', function() {
-        this.autogrow({flicking: false});
+        this.autogrow({flickering: false});
     });
+    */
 
 });
+// currenty we still rely on jquery lib to autogrow textbox
+$('.form_trans').autogrow({flickering: false});
+
 
 
 // image inline expansion
