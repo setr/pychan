@@ -309,7 +309,11 @@ def fetch_files(postid, engine=None):
         Returns:
             List(ResultProxy): [{filename, filetype, spoilered}]
     """
-    q = select([files.c.filename, files.c.filetype, files.c.spoilered]).where(files.c.post_id == postid).order_by(files.c.post_id)
+    q = select([files.c.filename,
+                files.c.filetype,
+                files.c.spoilered,
+                files.c.filesize,
+                files.c.resolution]).where(files.c.post_id == postid).order_by(files.c.post_id)
     return engine.execute(q).fetchall()
 
 @with_db(master)
@@ -335,7 +339,9 @@ def fetch_files_thread(postid, engine=None):
     q = select(
             [files.c.filename, 
                 files.c.filetype, 
-                files.c.spoilered]).where(
+                files.c.spoilered,
+                files.c.filesize,
+                files.c.resolution]).where(
         files.c.post_id.in_( postids )).order_by(files.c.post_id)
     return engine.execute(q).fetchall()
             
