@@ -75,7 +75,10 @@ class DB():
                 Column('post_id', Integer, ForeignKey("posts.id", **cascade)),
                 Column('filename', String(20), nullable=False), # size of the hash we're saving with
                 Column('filetype', String(4), nullable=False),  # .pdf, .jpeg, etc
-                Column('spoilered', Boolean, nullable=False)) 
+                Column('spoilered', Boolean, nullable=False),
+                Column('filesize', String(20), nullable=False),   # 330 KB
+                Column('resolution', String(20), nullable=False), # 250x457
+                Column('clocktime', Integer, default=0))          # 6s
 
         self.backrefs = Table('backrefs', self.metadata,
                 Column('id'   , Integer , primary_key=True)     ,

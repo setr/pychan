@@ -3,6 +3,7 @@ import hashlib
 import config as cfg
 import os
 import errors as err
+import json
 
 import tinys3
 
@@ -50,8 +51,7 @@ def save_image(afile, isop):
 
     f, e = os.path.splitext(afile.filename)
     ext = e[1:] # get rid of the . in the extension
-    allowed = ext.lower() in ALLOWED_EXTENSIONS
-    if not allowed:
+    if not ext.lower() in ALLOWED_EXTENSIONS:
         raise err.BadMedia('File not allowed')
 
     basename = hashfile(afile) # returns hex
@@ -80,7 +80,9 @@ def save_image(afile, isop):
         # for now, we're being stupid as shit
         # locally saving the file, generating the thumbnail, uploading the thumb
         # and finally deleting both the local file and thumb 
-        _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        resolution = _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        filesize = os.stat(mainpath).st_size 
+
         s3.Object(cfg.S3_BUCKET, mainpath).put(Body=open(mainpath, 'rb'))
         s3.Object(cfg.S3_BUCKET, thumbpath).put(Body=open(thumbpath, 'rb'))
         try:
@@ -91,9 +93,18 @@ def save_image(afile, isop):
     else:
         if os.path.isfile(mainpath) and not cfg.allow_same_image:
             raise err.BadInput('File already exists')
-        _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        resolution = _local_save(afile, ext, mainpath, thumbpath, isop) # saves file, thumbnail to disk
+        filesize = os.stat(mainpath).st_size 
+    filesize = human_filesize(filesize)
+   
+    return basename, ext, filesize, resolution
 
-    return basename, ext
+def human_filesize(size):
+    from math import log
+    _suffixes = ['B', 'KB', 'MB', 'GB']
+    order = int(log2(size) / 10) if size else 0
+    return '{:.4g} {}'.format(size / (1 << (order * 10)), _suffixes[order])
+
 
     
 def _local_save(afile, ext, mainpath, thumbpath, isop):
@@ -102,7 +113,6 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
     h,w = (cfg.op_thumb_max_height, cfg.op_thumb_max_width) if isop \
      else (cfg.post_thumb_max_height, cfg.post_thumb_max_width)
 
-    command = []
     if ext.lower() in cfg.imagemagick_formats:
         size = '{w}x{h}>' .format(w=w, h=h) # the > stops small images from being enlarged in imagemagick
         mainpath = mainpath + '[0]' # [0] gets page0 from the file. 
@@ -110,28 +120,43 @@ def _local_save(afile, ext, mainpath, thumbpath, isop):
         # for god knows what reason, thumbpath/mainpath need to be switched
         # for pdf vs img thumbnailing. weirdly, non-switched command works on cli just fine.
         if ext == 'pdf':
-            command = ['/usr/bin/convert', mainpath,
+            save_command = ['/usr/bin/convert', mainpath,
             #command = ['convert'      , mainpath ,
                         '-thumbnail'  , size     ,
                         '-background' , 'white'  ,
                         '-alpha'      , 'remove' ,
                         thumbpath]
         else:
-            command = ['/usr/bin/convert'      , mainpath ,
+            save_command = ['/usr/bin/convert'      , mainpath ,
             #command = ['convert'     , mainpath ,
                         '-thumbnail' , size     ,
                         '-format'    , 'jpg'    ,
                         thumbpath]
+        metadata_command = ['/usr/bin/identify',
+                            '-format', '%[w]x%[h]',
+                            mainpath]
+        resolution = subprocess.check_output(metadata_command)
     elif ext.lower() in cfg.ffmpeg_formats:
         # don't upscale
         # take the min scaling factor
         scale='scale=iw*min(1\\,min({w}/iw\\,{h}/ih)):-1'.format(w=w, h=h)
-        command = ['/usr/bin/ffmpeg',
+        save_command = ['/usr/bin/ffmpeg',
         #command = ['ffmpeg',
                 '-i'       , mainpath ,
                 '-vframes' , '1'      ,
                 '-vf'      , scale    ,
                 thumbpath]
+        metadata_command = ['/usr/bin/ffprobe',
+                            '-v', 'error', 
+                            '-show_entries', 'stream=width,height',
+                            '-of', 'json',
+                            mainpath]
+        meta = subprocess.check_output(metadata_command)
+        meta = json.decode(meta)
+        width, height = meta['streams']['width'], meta['streams']['height']
+        resolution = '{}x{}'.format(width, height)
+
     # there should be no other valid exts
     # we're assumming success
-    subprocess.check_call(command)
+    subprocess.check_call(save_command)
+    return resolution

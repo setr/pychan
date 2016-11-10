@@ -194,12 +194,14 @@ def _upload(boardname, threadid=None, boardid=None):
     # TODO for handling multiple images, this would be looping through all the images
     files = list() # list of files to pass to db
     if image:
-        basename, ext = gh.save_image(image, isop)
+        basename, ext, filesize, resolution = gh.save_image(image, isop)
 
         filedict = {
         'filename'  : basename,
         'filetype'  : ext,
-        'spoilered' : spoilered}
+        'spoilered' : spoilered,
+        'filesize'  : filesize,
+        'resolution': resolution}
         files.append(filedict)
 
     if isop: 
