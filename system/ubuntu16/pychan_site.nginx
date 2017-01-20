@@ -1,35 +1,6 @@
-### redirect to correct subdomain 
-server {
-    listen 80;
-    server_name hawk.eva.hk;
-
-    location /a {
-        return 301 $scheme://real.hawk.eva.hk$request_uri;
-    }
-    location / {
-        return 301 $scheme://static.hawk.eva.hk$request_uri;
-    }
-}
-
-
-### PYCHAN ###
-server {
-    listen 80;
-    server_name static.hawk.eva.hk;
-
-    #server_name 45.55.67.68;
-    client_max_body_size 10M;
-
-    location / {
-        include uwsgi_params;
-        uwsgi_pass unix:/var/www/pychan/pychan.sock;
-    }
-}
-
-
 ### MEGUCA ###
 upstream meguca {
-    server 127.0.0.1:8000;
+    server 127.0.0.1:9000;
 }
 
 # Additional WebSocket proxying support
@@ -37,28 +8,108 @@ map $http_upgrade $connection_upgrade {
     default upgrade;
     '' close;
 }
+access_log /var/log/nginx/doushio.log;
 
+### redirect to correct subdomain 
 server {
     listen 80;
-    server_name real.hawk.eva.hk;
+    listen [::]:80 default_server ipv6only=on;
+
+    server_name hawk.eva.hk;
+
+    root /var/www/html;
+    index index.html index.htm;
 
     location / {
-        proxy_pass http://meguca/;
-        # Stream trafix directly to backend
-        proxy_buffering off;
-
-        # Time out very long file uploads
-        client_body_timeout 600s;
-
-        # Prevent websocket from closing every 60 seconds
-        proxy_read_timeout 36000s;
-
-        # WebSockets support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade;
-
-        # Pass source IP to backend
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        try_files $uri $uri/ =404;
     }
+
+    gzip on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript application/x-javascript text/javascript;
+
+    ### PYCHAN ###
+    client_max_body_size 10M;
+
+    ### FROZEN PYCHAN -- COMMENT THIS BLOCK WHEN UNFROZEN
+    # location ~ upload {
+    #     return 301 http://hawk.eva.hk/FROZEN.html;
+    # }
+
+    location ~ ^/(g|m)/ {
+	# so we can get the real ip of the client in pychan
+	proxy_set_header X-Real-IP $remote_addr;
+        include uwsgi_params;
+        uwsgi_pass unix:/var/www/pychan/pychan.sock;
+    }
+
+    ### MEGUCA ###
+    location ~ ^/(a|vq)/ {
+        proxy_pass http://meguca;
+	proxy_buffering off;
+
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	# CloudFlare
+	#proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+
+	# Custom error page. Changing to 503 to not trip Cloudflare
+	error_page 500 502 503 504 =503 /503.html;
+    }
+
+    location /ass {
+        add_header Cache-Control "public, max-age=30240000";
+        alias /var/www/meguca/www;
+    }
+
+    location  /favicon.ico      {alias /var/www/meguca/www/favicon.ico; }
+    location  /bg.jpg           {alias /var/www/meguca/www/bg.jpg; }
+    location  /MadokaRunes.tff  {alias /var/www/meguca/www/MadokaRunes.tff; }
+    location  /503.ico          {alias /var/www/meguca/www/503.ico; }
+    location  /503.html         {alias /var/www/meguca/www/503.html; }
+    location  /mobile           {alias /var/www/meguca/www/mobile/; }
+    location  /thumb            {alias /var/www/meguca/www/thumb/; }
+    location  /src              {alias /var/www/meguca/www/src/; }
+
+    location /login             { proxy_pass http://meguca; }
+    location /logout            { proxy_pass http://meguca; }
+    location /api               { proxy_pass http://meguca; }
+    location /mod               { proxy_pass http://meguca; }
+    location = /mod.js { alias /var/www/meguca/state/mod.js; }
+
+    ### MEGUCA FROZEN -- COMMENT OUT TO FREEZE
+    location /upload/ {
+    	proxy_pass http://meguca/upload/;
+    
+    	# For forwarding IPs:
+    	# Set "TRUST_X_FORWARDED_FOR: true" in ./config.js
+    	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    	# CloudFlare
+    	#proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+    
+    	# Adjust this to your imager/config IMAGE_FILESIZE_MAX.
+    	client_max_body_size 10m;
+    	# Allow for prolonged uploads.
+    	client_body_timeout  300s;
+    	# This may give you more accurate upload progress.
+    	proxy_buffering off;
+    }
+
+    location /hana/ {
+            proxy_pass http://meguca/hana/;
+            proxy_buffering off;
+
+            # WebSockets support.
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade $http_upgrade;
+            proxy_set_header   Connection $connection_upgrade;
+
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            # CloudFlare
+            #proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+    }
+    ###
+
 }
+
+
