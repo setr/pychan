@@ -42,8 +42,7 @@
 {%- endmacro %}
 
 {% macro _replies(boardname, replylist ) %}
-    <small>
-        {% for r in replylist %}
+    <small>{% for r in replylist %}
             {% set rid = r.tail %}
             {% set tid = r.thread_id %}
 
@@ -51,8 +50,7 @@
             ## if no rid, the backref was from a different board #
             <a href="/{{boardname}}/{{tid}}#{{rid}}" class="history"> >>{{rid}} </a>
             # endif
-        {% endfor %}
-    </small>
+        {% endfor %}</small>
 {%- endmacro %}
 
 {% macro _figure(filelist, isop) %}
