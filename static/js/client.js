@@ -188,7 +188,9 @@ function findNextSiblingClass(cur, classname){
 
 
 document.querySelectorAll(".quote").forEach(function(quote){
-    quote.addEventListener('click', function() {
+    quote.addEventListener('click', function(event) {
+        event.preventDefault();
+        
         // find the parent article, then find the [Reply] for associated with it
         var section = findParentTag(quote, "SECTION"); 
         var replybutton = section.querySelector(".act.posting.thread");
@@ -199,7 +201,7 @@ document.querySelectorAll(".quote").forEach(function(quote){
 
         var textarea = replyform.querySelector("textarea");
         textarea.value += text;
-    }
+    });
 });
 
 // BANNER CONTROLS
