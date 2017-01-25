@@ -4,17 +4,14 @@ import gen_helpers as gh
 import errors as err
 
 from flask import Flask, request, render_template
-from flask import url_for, flash, redirect, session
-from flask import send_from_directory, Markup 
+from flask import url_for, redirect, session
 from flask_s3 import FlaskS3
 
-from pprint import pprint
-import random, string
-import os
+import random
+import string
 import datetime
 
 from functools import wraps
-import hashlib
 
 app = Flask(__name__)
 
@@ -22,46 +19,49 @@ app = Flask(__name__)
 app.config['FLASKS3_ACTIVE'] = cfg.aws
 app.config['FLASKS3_BUCKET_NAME'] = cfg.S3_BUCKET
 app.config['FLASKS3_BUCKET_DOMAIN'] = cfg.S3_BUCKET_DOMAIN
-#app.config['AWS_ACCESS_KEY_ID'] = cfg.S3_ACCESS_KEY
-#app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
+# app.config['AWS_ACCESS_KEY_ID'] = cfg.S3_ACCESS_KEY
+# app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
 s3 = FlaskS3(app)
 
 
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
-app.jinja_env.line_statement_prefix = '#' # enables jinja2 line mode
-app.jinja_env.line_comment_prefix = '##' # enables jinja2 line mode
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.jinja_env.line_statement_prefix = '#'  # enables jinja2 line mode
+app.jinja_env.line_comment_prefix = '##'  # enables jinja2 line mode
 
-app.secret_key = 'Bd\xf2\x14\xbbi\x01Gq\xc6\x87\x10BVc\x9c\xa4\x08\xdbk%\xfa*\xe3' # os.urandom(24)
+app.secret_key = 'Bd\xf2\x14\xbbi\x01Gq\xc6\x87\x10BVc\x9c\xa4\x08\xdbk%\xfa*\xe3'  # os.urandom(24)
 
-app.add_template_global(cfg, 'cfg') # makes our config available to all jinja templates 
-#@app.before_first_request
-#def load_tables():
-#    """ collects all the metadata as soon as the app boots up
-#    well, only acts when the first request comes in but whatever"""
-#    db._fetch_metadata(database)
+# makes our config available to all jinja templates
+app.add_template_global(cfg, 'cfg')
+# @app.before_first_request
+# def load_tables():
+#     """ collects all the metadata as soon as the app boots up
+#     well, only acts when the first request comes in but whatever"""
+#     db._fetch_metadata(database)
+
 
 @app.before_request
 def assign_session_params():
     """ Makes sure the user has basic needs satisfied
         password: password to sign off posts with
         myposts: list of pids posted by the user
-        update-myposts: at min once every two days, replace myposts with a 
+        update-myposts: at min once every two days, replace myposts with a
             list of postids that still exist in the db.
     """
     if 'password' not in session:
-        allowed= string.ascii_letters + string.digits
-        session['password']= ''.join(random.choice(allowed) for i in range(24))
+        allowed = string.ascii_letters + string.digits
+        session['password'] = ''.join(random.choice(allowed) for i in range(24))
     if 'myposts' not in session:
-        session['myposts'] = list() 
+        session['myposts'] = list()
 
     now = datetime.datetime.utcnow()
     if 'lastclear' not in session:
         session['lastclear'] = now
     delta = now - session['lastclear']
-    if delta > datetime.timedelta(days=2): 
+    if delta > datetime.timedelta(days=2):
         session['lastclear'] = now
         session['myposts'] = db.fetch_updated_myposts(session['myposts'])
     return None
+
 
 def checktime(fn):
     """ Decorator to make sure its been more than n time since last post """
@@ -80,6 +80,7 @@ def checktime(fn):
         return fn(*args, **kwargs)
     return go
 
+
 def adminonly(fn):
     """ Decorator
     Checks if the user is currently a mod
@@ -92,6 +93,7 @@ def adminonly(fn):
         else:
             raise err.Forbidden('You must be an admin to see this page') # proper would be 401 Unauthorized
     return go
+
 
 def if_board_exists(fn):
     """ Decorator
@@ -108,6 +110,7 @@ def if_board_exists(fn):
             return fn(*args, boardid=boardid, **kwargs)
     return go
 
+
 @app.route('/<boardname>/upload', methods=['POST'])
 @if_board_exists
 def newthread(boardname, boardid=None):
@@ -115,8 +118,10 @@ def newthread(boardname, boardid=None):
         raise err.BadInput('New threads must have an image')
     threadid = request.form.get('threadid')
     if threadid:
-        return redirect(url_for('newpost', boardname=boardname, thread=threadid, boardid=boardid))
+        return newpost(boardname, threadid, boardid)
+        # return redirect(url_for('newpost', boardname=boardname, thread=threadid, boardid=boardid))
     return _upload(boardname, boardid=boardid)
+
 
 @app.route('/<boardname>/<int:threadid>/upload', methods=['POST'])
 @if_board_exists
@@ -125,12 +130,13 @@ def newpost(boardname, threadid, boardid=None):
         raise err.PermDenied('Thread is locked')
     return _upload(boardname, threadid=threadid, boardid=boardid)
 
+
 @app.route('/<boardname>/delete', methods=['POST'])
 @if_board_exists
 def delpost(boardname, boardid=None):
 
     # we're actually getting the global postid from the form this time
-    global_postid = request.form.get('postid')
+    postid = request.form.get('postid')
     password = request.form.get('password')
     url = request.form.get('url')
 
@@ -139,23 +145,22 @@ def delpost(boardname, boardid=None):
         files = db.fetch_files_thread(postid)
     else:
         files = db.fetch_files(postid)
-    
     error = db.delete_post(postid, password, ismod)
     if error:
         raise err.PermDenied(error)
 
     for f in files:
-        if not db.file_is_referenced( f['filename'], filetype ):
+        if not db.file_is_referenced(f['filename'], f['filetype']):
             try:
-                gh.delete_file( f['filename'], f['filetype'] ) 
-            except OSError: # we searched aws, but the file was local, or vice versa, most likely.
+                gh.delete_file(f['filename'], f['filetype'])
+            except OSError:
+                # we searched aws, but the file was local, or vice versa, most likely.
                 message = "The file could not be found"
-                return render_template('error.html', error_message= message)
-                
-                
+                return render_template('error.html', error_message=message)
     return redirect(url)
 
-#@checktime
+
+# @checktime
 def _upload(boardname, threadid=None, boardid=None):
     """ handles the entire post upload process, and validation
         Args:
@@ -172,15 +177,15 @@ def _upload(boardname, threadid=None, boardid=None):
     sage      = request.form.get('sage'      , default= False , type= bool)
     spoilered = request.form.get('spoilered' , default= False , type= bool)
     name      = request.form.get('name',
-                     default= '',
-                     type= str).strip()
+                     default='',
+                     type=str).strip()
     password  = request.form.get('password',
-                    default= "idc",
-                    type= str)
+                    default="idc",
+                    type=str)
     ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
     
-    if email == "sage": 
-        sage = True 
+    if email == "sage":
+        sage = True
 
     if (not post or post.isspace()) and not image:
         raise err.BadInput('Cannot have an empty post') 
@@ -192,7 +197,7 @@ def _upload(boardname, threadid=None, boardid=None):
     # and now we start saving the post
     isop = False if threadid else True
     # TODO for handling multiple images, this would be looping through all the images
-    files = list() # list of files to pass to db
+    files = list()  # list of files to pass to db
     if image:
         basename, ext, filesize, resolution = gh.save_image(image, isop)
 
@@ -204,7 +209,7 @@ def _upload(boardname, threadid=None, boardid=None):
         'resolution': resolution}
         files.append(filedict)
 
-    if isop: 
+    if isop:
         # ops cannot be made saged by normal usage.
         threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject, ip=ip)
     else:
@@ -216,13 +221,13 @@ def _upload(boardname, threadid=None, boardid=None):
 
     # posts are marked dirty by default
     db.reparse_dirty_posts(boardname, boardid)
-
     return redirect(url_for('thread', boardname=boardname, thread=threadid, _anchor=fpid))
 
 
 @app.route('/', methods=['GET'])
 def root():
-    return redirect(url_for('index', boardname='v')) # TODO: Make a boardlist page.
+    return redirect(url_for('index', boardname='v'))  # TODO: Make a boardlist page.
+
 
 @app.route('/<boardname>', methods=['GET'])
 @app.route('/<boardname>/', methods=['GET'])
@@ -231,16 +236,14 @@ def root():
 def index(boardname, boardid=None):
     page = request.args.get('page', 0)
     try:
-        page = int(page) # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
-    except TypeError:    # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
+        page = int(page)  # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
+    except TypeError:     # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
         page = 0
     if page > cfg.index_max_pages:
-        return e404(None)
-    
+        return err.e404()
     boarddata = db.fetch_boarddata(boardid)
     if not boarddata:
         raise err.DNE('board does not exist')
-
     threads = db.fetch_page(boardid, page)
     hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
     return render_template('board_index.html',
@@ -248,12 +251,13 @@ def index(boardname, boardid=None):
             board=boarddata,
             counts=hidden_counts)
 
+
 @app.route('/<boardname>/<thread>/', methods=['GET'])
 @if_board_exists
 def thread(boardname, thread, boardid=None):
     if not db.is_thread(boardid, thread):
         raise err.DNE('Specified thread does not exist')
-        #return general_error('Specified thread does not exist')
+        # return general_error('Specified thread does not exist')
     thread_data = db.fetch_thread(boardid, thread)
     board_data = db.fetch_boarddata(boardid)
     return render_template('thread.html',
@@ -263,6 +267,10 @@ def thread(boardname, thread, boardid=None):
 @app.errorhandler(err.BadInput)
 def handle_permdenied(error):
     return render_template('error.html', error_message=error.message), 415
+
+@app.errorhandler(err.e404)
+def handle_permdenied(error):
+    return render_template('error.html', error_message=error.message), 404
 
 @app.errorhandler(err.BadMedia)
 def handle_permdenied(error):
