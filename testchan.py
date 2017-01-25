@@ -246,10 +246,12 @@ def index(boardname, boardid=None):
         raise err.DNE('board does not exist')
     threads = db.fetch_page(boardid, page)
     hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
+    page_count = db.count_pages(boardid)
     return render_template('board_index.html',
             threads=threads,
             board=boarddata,
-            counts=hidden_counts)
+            counts=hidden_counts,
+            page_count=page_count)
 
 
 @app.route('/<boardname>/<thread>/', methods=['GET'])

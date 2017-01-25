@@ -409,6 +409,20 @@ def inject_backrefs(boardid, posts_result):
         done.append(p)
     return done
 
+@with_db(slave)
+def count_pages(boardid, engine=None):
+    """ Counts the number of pages available for the board, based on live threads.
+        Args:
+            boardid (int): board_id
+        Returns:
+            Int: number of pages
+    """
+    q = select([func.count(threads)]).\
+            where(and_(threads.c.alive == True,
+                       threads.c.board_id == boardid))
+    return engine.execute(q).fetchone()[0]
+
+
 
 @with_db(slave)
 def fetch_page(boardid, pgnum=0, engine=None):
