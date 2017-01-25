@@ -420,7 +420,7 @@ def count_pages(boardid, engine=None):
     q = select([func.count(threads)]).\
             where(and_(threads.c.alive == True,
                        threads.c.board_id == boardid))
-    return engine.execute(q).fetchone()[0]
+    return (engine.execute(q).fetchone()[0] / cfg.index_threads_per_page) + 1
 
 
 
