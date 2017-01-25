@@ -1,5 +1,5 @@
 # pychan
-simple static-chan using python3 and sqlite
+simple chan using python3 and sqlite
 
 Eventually it should feature:
 
@@ -18,11 +18,11 @@ Eventually it should feature:
 
 All Web handling is done through Flask/Werkzeug, and uses SQLAlchemy(core) for general SQL-DB independence. Though the most likely usecase **should** be SQLite. A pretty standard python web setup. Basic configs *will* be supplied for an Nginx webserver hosting this + meguca alongside each other.
 
-Images are handled using ImageMagick. PDF-Thumbnailing is handled through Ghostscript (currently interfaced through imagemagick). Webms do not get thumbnailed, at least for now. If they are to be, it'll likely be through ffmpeg.
+Images are handled using ImageMagick. PDF-Thumbnailing is handled through Ghostscript (currently interfaced through imagemagick). Webms are thumbnail'd with ffmpeg.
 
-Currently there are no optional requirements. You **must** have imagemagick compiled with support for JPG, PNG, GIF, as well as ghostscript for PDF (and imagemagick needs to know where ghostscript lives.) I believe for most os's, this is the standard install of imagemagick.
+Currently there are no optional requirements. You **must** have imagemagick compiled with support for JPG, PNG, GIF, as well as ghostscript for PDF (and imagemagick needs to know where ghostscript lives.) FFMPEG with support for webms. I believe for most os's, this is the standard install of imagemagick and ffmpeg.
 
-I'm also making subprocess module calls (without shell=True) to run imagemagick. I'm not sure what python does with the strings outside of shell escaping, but I think it's safe to assume sh is a dependency.
+I'm also making subprocess module calls (without shell=True) to run imagemagick and image magick. I'm not sure what python does with the strings outside of shell escaping, but I think it's safe to assume sh is a dependency.
 
 Otherwise, at least for now, the only dependencies are python3, sqlite and any modules in the requirements.txt file.
 
@@ -65,11 +65,12 @@ then go to localhost:5000
 
 ### Styling
 - [ ] Meguca header
-       - [ ] the header itself + icons     
-       - [ ] Meguca header options
-       - [ ] banner image
-- [ ] CSS theme switching
-- [ ] Test Meguca CSS beyond ashita
+       - [x] the header itself + icons     
+       - [x] Meguca header options
+       - [x] banner image
+       - Note, most of the buttons are actually non-functioning atm.
+- [x] CSS theme switching
+- [x] Test Meguca CSS beyond ashita
 - [ ] Need to make thread distinction more clear on index pages
 
 ### Client-Side Viewing
@@ -112,7 +113,7 @@ then go to localhost:5000
        - [ ] spoiler thumbnail
        - [x] webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault. **works fine on nginx**
        - [ ] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
-              - I don't know why, but PDF thumbnail generation fails on server. Works fine on localhost, and when called using the Flask-server. 
+              - [x] I don't know why, but PDF thumbnail generation fails on server. Works fine on localhost, and when called using the Flask-server. **had to do with imagemagick's default location for ghostscript being incorrect.**
 - [ ] Full image on hover (JS)
        - Shouldn't apply to webms (it's annoying)
        - Shouldn't apply to PDFs
@@ -140,8 +141,8 @@ then go to localhost:5000
 - [x] sage
 - [ ] tripcode
 - [ ] gimmicks? (dice rolls and whatnot)
-- [x] spoiler text
-- [x] reply-links
+- [x] spoiler text "\**stuff**"
+- [x] reply-links 
 - [x] replied-by links
 - [x] >implying
 - [ ] Youtube embed (JS)
@@ -153,7 +154,7 @@ then go to localhost:5000
 - [ ] An actual login page
 - [ ] Administration page (clear bans, clear cache, etc)
 - [ ] Banlist page
-- [ ] Database access functions
+- [ ] Database access functions (currently only server-side sqlite-commands)
 - [ ] Limited Bans (ie 1 day, or on one board)
 - [ ] Mod-options for index page
 
@@ -179,9 +180,10 @@ then go to localhost:5000
 - [ ] Most of the functions have Napolean-Sphinx compatatible docstrings, but we still need to start generating them
 
 ### MAYBE
-- [ ] Converter script from meguca-css to ours
+- [x] Converter script from meguca-css to ours
        - in the form of loading meguca-css, then pasting ours on top
        - pychan-modified css in mycss.css
+       - **Not** a script. Just an additional css file-load.
 - [ ] Add multi-image support (this seems like it'll be annoying to add) (SQL/PYTHON)
        - I believe most of the support for this is now complete, with everything now assuming theres a list of files
        - However, I have no real idea how to add multi-image support on the frontend side, without declaring #id1 #id2 #id3 boxes, and then looking through all of them. Which is do-able, but seems pretty stupid. Ideally, it should just reach flask as a generic list of files to operate on. 
