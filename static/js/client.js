@@ -51,17 +51,17 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
     button.addEventListener('click', function () {
         button.style.display = 'none';
         replyform.style.display = 'table';
+        replyform.querySelector('textarea').focus();
     });
     // hide the form, show the button
     var cancel = replyform.getElementsByClassName("form_cancel")[0];
     cancel.addEventListener('click', function() {
         button.style.display = 'table';
         replyform.style.display = 'none';
-        // firstchild = the actual form
-        replyform.firstChild.reset(); // resets all elements in the form; magic ~~~~
+        replyform.querySelector('textarea').value = ""
     });
 
-    // submit w/ the pass from bottom right
+    //ubmit w/ the pass from bottom right
     var submit = replyform.getElementsByClassName("form_submit")[0];
     var password = replyform.getElementsByClassName("form_password")[0];
     submit.addEventListener('click', function() {
@@ -172,6 +172,33 @@ $(".control").click(function (){
     } else {
         $(this).css("transform","" );
     }
+});
+
+
+// click No. 27 to auto append to text
+function findParentTag(cur, tagname){
+    if (cur.tagName == tagname) { return cur; }
+    else if (cur.parentNode == null) { return null; }
+    else {return findParentTag(cur.parentNode, tagname); }}
+
+function findNextSiblingClass(cur, classname){
+    if (cur.className == classname) { return cur; }
+    else if (cur.nextSibling == null) { return null; } // hit the root node
+    else {return findNextSiblingClass(cur.nextSibling, classname); }}
+
+
+document.querySelectorAll(".quote").forEach(function(quote){
+    // find the parent article, then find the [Reply] for associated with it
+	var section = findParentTag(quote, "SECTION"); 
+    var replybutton = section.querySelector(".act.posting.thread");
+    var replyform = section.querySelector(".postform");
+    var text = " >>" + quote.innerHTML + " ";
+
+    if (replybutton.style.display = 'none'){ replybutton.click(); }
+
+    var textarea = replyform.querySelector("textarea");
+    textarea.value += text;
+
 });
 
 // BANNER CONTROLS
