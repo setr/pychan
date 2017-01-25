@@ -188,17 +188,18 @@ function findNextSiblingClass(cur, classname){
 
 
 document.querySelectorAll(".quote").forEach(function(quote){
-    // find the parent article, then find the [Reply] for associated with it
-	var section = findParentTag(quote, "SECTION"); 
-    var replybutton = section.querySelector(".act.posting.thread");
-    var replyform = section.querySelector(".postform");
-    var text = " >>" + quote.innerHTML + " ";
+    quote.addEventListener('click', function() {
+        // find the parent article, then find the [Reply] for associated with it
+        var section = findParentTag(quote, "SECTION"); 
+        var replybutton = section.querySelector(".act.posting.thread");
+        var replyform = section.querySelector(".postform");
+        var text = " >>" + quote.innerHTML + " ";
 
-    if (replybutton.style.display = 'none'){ replybutton.click(); }
+        if (replybutton.style.display = 'none'){ replybutton.click(); }
 
-    var textarea = replyform.querySelector("textarea");
-    textarea.value += text;
-
+        var textarea = replyform.querySelector("textarea");
+        textarea.value += text;
+    }
 });
 
 // BANNER CONTROLS
