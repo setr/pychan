@@ -14,7 +14,11 @@
     {% set tlength = '30' %}
 # endif
 <article class="postform" style="display: none">
+    # if threadid:
+    <form method="post" enctype="multipart/form-data" action="./{{threadid}}/upload">
+    # else:
     <form method="post" enctype="multipart/form-data" action="./upload">
+    # endif
         <header>
             <b class="name"><input type="text" class="replyname" maxlength="30" name="name" placeholder="Anonymous"></b>
         <b class="Email"><input type="text" class="replyemail" maxlength="30" name="email" placeholder="Email"></b>
@@ -30,9 +34,9 @@
         <input type="button" class="form_toggle">
         <input type="file"   class="form_image" name="image" accept="image/*;.webm">
         <input type="hidden" class="form_password" name="password" >
-        # if threadid
-        <input type="hidden" class="form_threadid" name="threadid"  val="{{threadid}}">
-        # endif
+        ### # if threadid
+        ### <input type="hidden" class="form_threadid" name="threadid"  val="{{threadid}}">
+        ### # endif
     </form>
 </article>
 {% endmacro %}
