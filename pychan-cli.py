@@ -17,7 +17,7 @@ def delete_post(boardname, postids):
 
 @click.command()
 @click.argument("board", required=True)
-@click.argument("postids", nargs=-1, required=True, help="the post id for each thread")
+@click.argument("postids", nargs=-1, required=True)
 def autosage(boardname, postids):
     boardid = db.get_boardid(boardname)
     for pid in postids:
