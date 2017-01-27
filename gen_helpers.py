@@ -100,7 +100,7 @@ def save_image(afile, isop):
     return basename, ext, filesize, resolution
 
 def human_filesize(size):
-    from math import log
+    from math import log2
     _suffixes = ['B', 'KB', 'MB', 'GB']
     order = int(log2(size) / 10) if size else 0
     return '{:.4g} {}'.format(size / (1 << (order * 10)), _suffixes[order])
