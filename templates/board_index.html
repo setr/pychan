@@ -22,7 +22,7 @@
         <aside class="act posting board"> 
             <a >New Thread</a>
         </aside>
-        {{ reply.postform(None) }}
+        {{ reply.postform(None, False) }}
 
         {% for thread in threads %}
             {% set op = thread[0] %}
@@ -40,7 +40,7 @@
             <aside class="act posting thread" style="display: table"> ## Reply form that opens on click. Handled by client.js
                 <a>Reply</a>
             </aside>
-            {{ reply.postform(tid) }}
+            {{ reply.postform(tid, False) }}
             </section> ## END OF THREAD
             <hr>
         {% endfor %} 
