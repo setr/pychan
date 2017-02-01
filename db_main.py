@@ -254,10 +254,10 @@ def parse_post(boardname, boardid, body, post_id, fpid):
                ( re.compile(escape('^>(?!>).+')), 
                 lambda match: implying.format(match.group(0))), 
                 # https://www.youtube.com/watch?v=3mbiG5E09b0
-               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n\s]+)')), 
+               ( re.compile('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n\s]+)'), 
                 lambda match: youtube.format(vid=match.group(1))),
                 # https://youtu.be/3mbiG5E09b0
-               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)')), 
+               ( re.compile('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)'), 
                 lambda match: youtube.format(vid=match.group(1)))]
 
 
