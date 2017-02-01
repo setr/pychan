@@ -61,17 +61,15 @@ document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(fun
         replyform.querySelector('textarea').value = ""
     });
 
-    //ubmit w/ the pass from bottom right
+    //submit w/ the pass from bottom right
     var submit = replyform.getElementsByClassName("form_submit")[0];
     var password = replyform.getElementsByClassName("form_password")[0];
     submit.addEventListener('click', function() {
         var pass = document.getElementById('pass').value;
         if (pass.trim() && getCookieVal('pass') != pass){
             Cookies.set('pass', pass);
-            password.val(pass);
-        } else {
-            password.val(getCookieVal('pass'));
         }
+        password.value = getCookieVal('pass');
     });
 
     // make the textarea dynamically grow on user input
