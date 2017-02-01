@@ -42,6 +42,24 @@ function hide_postlist(){
         $(this).remove()
       }});}
 hide_postlist()
+
+document.querySelectorAll(".embed.watch").forEach(function (embedlink) {
+    embedlink.addEventListener('click', function (click) {
+        click.preventDefault();
+        if (embedlink.childNodes.length == 2) {  // if 2, the youtube embed already exists (item 1 is the text >>>/watch?v ....)
+            var iframe = embedlink.childNodes[1];
+            embedlink.removeChild(iframe);
+        } else if (embedlink.childNodes.length == 1) { 
+            var iframe = document.createElement('iframe');
+            iframe.type = "text/html";
+            iframe.width = "640";
+            iframe.height = "360";
+            iframe.src = embedlink.getAttribute('embedlink');
+            iframe.frameborder = "0";
+            embedlink.appendChild(iframe);
+        }
+    });
+})
     
 // NEED TO APPLY TO POST FORMS
 document.querySelectorAll(".act.posting.thread, .act.posting.board").forEach(function (button) {

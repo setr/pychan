@@ -222,7 +222,7 @@ def parse_post(boardname, boardid, body, post_id, fpid):
     backref = '<a href="/{board}/{tid}#{pid}" class="history">>>{pid}</a>{space}'
     spoiler = '<del class> {} </del>'
     implying = '<em> {} </em>'
-    youtube = '<em><a href="https://www.youtube.com/watch?v={vid}" target="_blank" rel="nofollow" class="embed watch">>>>/watch?v={vid}</a></em>'
+    youtube = '<em><a href="https://www.youtube.com/watch?v={vid}" embedlink="https://www.youtube.com/embed/{vid}" target="_blank" rel="nofollow" class="embed watch">>>>/watch?v={vid}</a></em>'
 
     addrefs = list()
     isdirty = False
