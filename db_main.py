@@ -217,17 +217,6 @@ def parse_post(boardname, boardid, body, post_id, fpid):
         # if an html special character is in the regex, then don't escape() the regex.
         # instead, you'll have to use the html sequences in the regex.
         # searching after the post was escaped.
-    f_ref = escape('>>(\d+)(\s)?')   # >>123123
-    f_spoil = escape('\*(.*?)\*')     # >< SPOILERED ><
-    f_imply = escape('^>(?!>).+')     # >implying
-    f_youtube = escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)')
-    f_youtube_embed = escape('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)')
-
-    f_ref=   re.compile(f_ref)
-    f_spoil= re.compile(f_spoil, re.DOTALL) 
-    f_imply= re.compile(f_imply, re.MULTILINE) 
-    f_youtube = re.compile(f_youtube)
-    f_youtube_embed = re.compile(f_youtube2)
 
     # what they turn into
     backref = '<a href="/{board}/{tid}#{pid}" class="history">>>{pid}</a>{space}'
@@ -253,22 +242,19 @@ def parse_post(boardname, boardid, body, post_id, fpid):
             if fake_pid < fpid:
                 isdirty = True
             return ">>{}{}".format(fake_pid, space) # so it doesn't get read by other regex's
-    r_imply = lambda match: implying.format(match.group(0))
-    r_spoil = lambda match: spoiler.format(match.group(1))
-    r_youtube = lambda match: youtube.format(vid=match.group(1))
-    r_youtube_embed = lambda match: youtube.format(vid=match.group(1))
 
+    # NOTE: post reference regex must occur before implying.
     regexes = [ # >>123123 
                 ( re.compile(escape('>>(\d+)(\s)?')),  
                  r_ref ), 
-                # >< SPOILERED ><
+                # * SPOILERED *
                ( re.compile(escape('\*(.*?)\*')),
                 lambda match: spoiler.format(match.group(1))),
                 # >implying
                ( re.compile(escape('^>(?!>).+')), 
                 lambda match: implying.format(match.group(0))), 
                 # https://www.youtube.com/watch?v=3mbiG5E09b0
-               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)')), 
+               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n\s]+)')), 
                 lambda match: youtube.format(vid=match.group(1))),
                 # https://youtu.be/3mbiG5E09b0
                ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)')), 
