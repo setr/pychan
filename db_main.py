@@ -263,7 +263,7 @@ def parse_post(boardname, boardid, body, post_id, fpid):
 
     body = escape(body) # escape the thing, before we do any regexing on it
     body = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in body.splitlines()])
-    for r in regex:
+    for r in regexes:
         regex = r[0]
         replace = r[1]
         body = re.sub(regex, replace, body)
