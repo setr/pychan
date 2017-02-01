@@ -220,14 +220,14 @@ def parse_post(boardname, boardid, body, post_id, fpid):
     f_ref = escape('>>(\d+)(\s)?')   # >>123123
     f_spoil = escape('\*(.*?)\*')     # >< SPOILERED ><
     f_imply = escape('^>(?!>).+')     # >implying
-    youtube = 'https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)'
-    youtube2 = 'https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)'
-    f_youtube = escape(youtube + "|" + youtube2)
+    f_youtube = escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)')
+    f_youtube_embed = escape('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)')
 
     f_ref=   re.compile(f_ref)
     f_spoil= re.compile(f_spoil, re.DOTALL) 
     f_imply= re.compile(f_imply, re.MULTILINE) 
     f_youtube = re.compile(f_youtube)
+    f_youtube_embed = re.compile(f_youtube2)
 
     # what they turn into
     backref = '<a href="/{board}/{tid}#{pid}" class="history">>>{pid}</a>{space}'
@@ -256,13 +256,36 @@ def parse_post(boardname, boardid, body, post_id, fpid):
     r_imply = lambda match: implying.format(match.group(0))
     r_spoil = lambda match: spoiler.format(match.group(1))
     r_youtube = lambda match: youtube.format(vid=match.group(1))
+    r_youtube_embed = lambda match: youtube.format(vid=match.group(1))
+
+    regexes = [ # >>123123 
+                ( re.compile(escape('>>(\d+)(\s)?')),  
+                 r_ref ), 
+                # >< SPOILERED ><
+               ( re.compile(escape('\*(.*?)\*')),
+                lambda match: spoiler.format(match.group(1))),
+                # >implying
+               ( re.compile(escape('^>(?!>).+')), 
+                lambda match: implying.format(match.group(0))), 
+                # https://www.youtube.com/watch?v=3mbiG5E09b0
+               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)')), 
+                lambda match: youtube.format(vid=match.group(1))),
+                # https://youtu.be/3mbiG5E09b0
+               ( re.compile(escape('https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)')), 
+                lambda match: youtube.format(vid=match.group(1)))]
+
 
     body = escape(body) # escape the thing, before we do any regexing on it
     body = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in body.splitlines()])
-    body = re.sub(f_ref   , r_ref      , body)  # post-references must occur before imply (>>num)
-    body = re.sub(f_spoil , r_spoil    , body)  # spoiler must occur before imply (>< text ><)
-    body = re.sub(f_imply , r_imply    , body)  # since its looking for a subset  (>text)
-    body = re.sub(f_youtube, r_youtube , body)  # youtube link finding can be done anywhere
+    for r in regex:
+        regex = r[0]
+        replace = r[1]
+        body = re.sub(regex, replace, body)
+    # body = re.sub(f_ref   , r_ref      , body)  # post-references must occur before imply (>>num)
+    # body = re.sub(f_spoil , r_spoil    , body)  # spoiler must occur before imply (>< text ><)
+    # body = re.sub(f_imply , r_imply    , body)  # since its looking for a subset  (>text)
+    # body = re.sub(f_youtube, r_youtube , body)  # youtube link finding can be done anywhere
+    # body = re.sub(f_youtube_embed, r_youtube_embed , body)  # youtube link finding can be done anywhere
     body = re.sub('\n'    , '\n<br>\n' , body)
     
     mark_dirtyclean(post_id, isdirty)
