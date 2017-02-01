@@ -220,15 +220,20 @@ def parse_post(boardname, boardid, body, post_id, fpid):
     f_ref = escape('>>(\d+)(\s)?')   # >>123123
     f_spoil = escape('\*(.*?)\*')     # >< SPOILERED ><
     f_imply = escape('^>(?!>).+')     # >implying
+    youtube = 'https?:\/\/(?:[^\.]+\.)?youtube\.com\/watch\/?\?(?:.+&)?v=([^&\n]+)'
+    youtube2 = 'https?:\/\/(?:[^\.]+\.)?(?:youtu\.be|youtube\.com\/embed)\/([a-zA-Z0-9_-]+)'
+    f_youtube = escape(youtube + "|" + youtube2)
 
     f_ref=   re.compile(f_ref)
     f_spoil= re.compile(f_spoil, re.DOTALL) 
     f_imply= re.compile(f_imply, re.MULTILINE) 
+    f_youtube = re.compile(f_youtube)
 
     # what they turn into
     backref = '<a href="/{board}/{tid}#{pid}" class="history">>>{pid}</a>{space}'
     spoiler = '<del class> {} </del>'
     implying = '<em> {} </em>'
+    youtube = '<em><a href="https://www.youtube.com/watch?v={vid}" target="_blank" rel="nofollow" class="embed watch">>>>/watch?v={vid}</a></em>'
 
     addrefs = list()
     isdirty = False
@@ -237,7 +242,7 @@ def parse_post(boardname, boardid, body, post_id, fpid):
         pid = _get_realpostid(boardid, fake_pid) # so we need to first get the global pid, for backreferencing
         # preserves following whitespace; particularly \n
         space = match.group(2) if match.group(2) else ""
-        if pid: # if no real_pid, the post doesn't exist.
+        if pid:  # if no real_pid, the post doesn't exist.
             tid = _fetch_thread_of_post(pid)
             addrefs.append(pid)
             return backref.format(board=boardname, tid=tid, pid=fake_pid, space=space)
@@ -245,17 +250,19 @@ def parse_post(boardname, boardid, body, post_id, fpid):
             # if the post does not exist currently
             # and is not a post from the future
             # it must be from the past, and thus never linkable.
-            if fake_pid < fpid: 
+            if fake_pid < fpid:
                 isdirty = True
             return ">>{}{}".format(fake_pid, space) # so it doesn't get read by other regex's
     r_imply = lambda match: implying.format(match.group(0))
     r_spoil = lambda match: spoiler.format(match.group(1))
+    r_youtube = lambda match: youtube.format(vid=match.group(1))
 
     body = escape(body) # escape the thing, before we do any regexing on it
     body = '\n'.join([re.sub('\s+', ' ', l.strip()) for l in body.splitlines()])
-    body = re.sub(f_ref   , r_ref      , body)      # post-references must occur before imply (>>num)
+    body = re.sub(f_ref   , r_ref      , body)  # post-references must occur before imply (>>num)
     body = re.sub(f_spoil , r_spoil    , body)  # spoiler must occur before imply (>< text ><)
     body = re.sub(f_imply , r_imply    , body)  # since its looking for a subset  (>text)
+    body = re.sub(f_youtube, r_youtube , body)  # youtube link finding can be done anywhere
     body = re.sub('\n'    , '\n<br>\n' , body)
     
     mark_dirtyclean(post_id, isdirty)
