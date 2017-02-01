@@ -47,9 +47,11 @@ document.querySelectorAll(".embed.watch").forEach(function (embedlink) {
     embedlink.addEventListener('click', function (click) {
         click.preventDefault();
         if (embedlink.childNodes.length == 2) {  // if 2, the youtube embed already exists (item 1 is the text >>>/watch?v ....)
+            embedlink.style = "width: auto";
             var iframe = embedlink.childNodes[1];
             embedlink.removeChild(iframe);
         } else if (embedlink.childNodes.length == 1) { 
+            embedlink.style = "width: 580px";
             var iframe = document.createElement('iframe');
             iframe.type = "text/html";
             iframe.width = "560";
