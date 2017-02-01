@@ -23,7 +23,6 @@ app.config['FLASKS3_BUCKET_DOMAIN'] = cfg.S3_BUCKET_DOMAIN
 # app.config['AWS_SECRET_ACCESS_KEY'] = cfg.S3_SECRET_KEY
 s3 = FlaskS3(app)
 
-
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.jinja_env.line_statement_prefix = '#'  # enables jinja2 line mode
 app.jinja_env.line_comment_prefix = '##'  # enables jinja2 line mode
@@ -49,7 +48,8 @@ def assign_session_params():
     """
     if 'password' not in session:
         allowed = string.ascii_letters + string.digits
-        session['password'] = ''.join(random.choice(allowed) for i in range(24))
+        session['password'] = ''.join(
+            random.choice(allowed) for i in range(24))
     if 'myposts' not in session:
         session['myposts'] = list()
 
@@ -65,6 +65,7 @@ def assign_session_params():
 
 def checktime(fn):
     """ Decorator to make sure its been more than n time since last post """
+
     @wraps(fn)
     def go(*args, **kwargs):
         now = datetime.datetime.utcnow()
@@ -74,10 +75,13 @@ def checktime(fn):
             delta = now - session['lastpost']
             mintime = cfg.minsec_between_posts
             if delta < datetime.timedelta(seconds=mintime):
-                raise err.DNE('Please wait at least %s seconds before posting again' % (mintime,))
+                raise err.DNE(
+                    'Please wait at least %s seconds before posting again' %
+                    (mintime, ))
             else:
                 session['lastpost'] = now
         return fn(*args, **kwargs)
+
     return go
 
 
@@ -86,12 +90,15 @@ def adminonly(fn):
     Checks if the user is currently a mod
     If not, redirect to modpage
     """
+
     @wraps(fn)
     def go(*args, **kwargs):
         if 'mod' in session:
             return fn(*args, **kwargs)
         else:
-            raise err.Forbidden('You must be an admin to see this page') # proper would be 401 Unauthorized
+            raise err.Forbidden('You must be an admin to see this page'
+                                )  # proper would be 401 Unauthorized
+
     return go
 
 
@@ -101,6 +108,7 @@ def if_board_exists(fn):
     The function must be consuming a variable called board
     It also injects the boardid into the argument
     """
+
     @wraps(fn)
     def go(*args, **kwargs):
         boardid = db.get_boardid(kwargs['boardname'])
@@ -108,6 +116,7 @@ def if_board_exists(fn):
             raise err.DNE('board does not exist')
         else:
             return fn(*args, boardid=boardid, **kwargs)
+
     return go
 
 
@@ -116,7 +125,12 @@ def if_board_exists(fn):
 def newthread(boardname, boardid=None):
     threadid = request.form.get('threadid')
     if threadid:
-        return redirect(url_for('newpost', boardname=boardname, thread=threadid, boardid=boardid))
+        return redirect(
+            url_for(
+                'newpost',
+                boardname=boardname,
+                thread=threadid,
+                boardid=boardid))
 
     if 'image' not in request.files or request.files['image'].filename == '':
         raise err.BadInput('New threads must have an image')
@@ -170,25 +184,21 @@ def _upload(boardname, threadid=None, boardid=None):
             Redirects to the (new) thread
     """
     # read file and form data
-    image     = request.files['image']
-    subject   = request.form.get('subject'   , default= ''    , type= str).strip()
-    email     = request.form.get('email'     , default= ''    , type= str).strip()
-    post      = request.form.get('body'      , default= ''    , type= str).strip()
-    sage      = request.form.get('sage'      , default= False , type= bool)
-    spoilered = request.form.get('spoilered' , default= False , type= bool)
-    name      = request.form.get('name',
-                     default='',
-                     type=str).strip()
-    password  = request.form.get('password',
-                    default="idc",
-                    type=str)
+    image = request.files['image']
+    subject = request.form.get('subject', default='', type=str).strip()
+    email = request.form.get('email', default='', type=str).strip()
+    post = request.form.get('body', default='', type=str).strip()
+    sage = request.form.get('sage', default=False, type=bool)
+    spoilered = request.form.get('spoilered', default=False, type=bool)
+    name = request.form.get('name', default='', type=str).strip()
+    password = request.form.get('password', default="idc", type=str)
     ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
-    
+
     if email == "sage":
         sage = True
 
     if (not post or post.isspace()) and not image:
-        raise err.BadInput('Cannot have an empty post') 
+        raise err.BadInput('Cannot have an empty post')
     if not gh._validate_post(post):
         raise err.PermDenied('Spam/Robot detected')
     if threadid and not db.is_thread(boardid, threadid):
@@ -202,31 +212,45 @@ def _upload(boardname, threadid=None, boardid=None):
         basename, ext, filesize, resolution = gh.save_image(image, isop)
 
         filedict = {
-        'filename'  : basename,
-        'filetype'  : ext,
-        'spoilered' : spoilered,
-        'filesize'  : filesize,
-        'resolution': resolution}
+            'filename': basename,
+            'filetype': ext,
+            'spoilered': spoilered,
+            'filesize': filesize,
+            'resolution': resolution
+        }
         files.append(filedict)
 
     if isop:
         # ops cannot be made saged by normal usage.
-        threadid, pid, fpid = db.create_thread(boardid, files, post, password, name, email, subject, ip=ip)
+        threadid, pid, fpid = db.create_thread(
+            boardid, files, post, password, name, email, subject, ip=ip)
     else:
-        pid, fpid = db.create_post(boardid, threadid, files, post, password, name, email, subject, sage, ip=ip)
+        pid, fpid = db.create_post(
+            boardid,
+            threadid,
+            files,
+            post,
+            password,
+            name,
+            email,
+            subject,
+            sage,
+            ip=ip)
 
-    # Special case: posts may >>pid posts that do not actually exist yet. 
-    # If they reference the pid we _just_ created, then we'll have to 
+    # Special case: posts may >>pid posts that do not actually exist yet.
+    # If they reference the pid we _just_ created, then we'll have to
     # reparse those old posts.
 
     # posts are marked dirty by default
     db.reparse_dirty_posts(boardname, boardid)
-    return redirect(url_for('thread', boardname=boardname, thread=threadid, _anchor=fpid))
+    return redirect(
+        url_for('thread', boardname=boardname, thread=threadid, _anchor=fpid))
 
 
 @app.route('/', methods=['GET'])
 def root():
-    return redirect(url_for('index', boardname='v'))  # TODO: Make a boardlist page.
+    return redirect(url_for('index',
+                            boardname='v'))  # TODO: Make a boardlist page.
 
 
 @app.route('/<boardname>', methods=['GET'])
@@ -236,8 +260,10 @@ def root():
 def index(boardname, boardid=None):
     page = request.args.get('page', 0)
     try:
-        page = int(page)  # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
-    except TypeError:     # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
+        page = int(
+            page
+        )  # sqlalchemy autoconverts pagenum to int, but its probably based on auto-detection
+    except TypeError:  # so we'll need to make sure it's actually an int; ie ?page=TOMFOOLERY
         page = 0
     if page > cfg.index_max_pages:
         return err.e404()
@@ -245,13 +271,16 @@ def index(boardname, boardid=None):
     if not boarddata:
         raise err.DNE('board does not exist')
     threads = db.fetch_page(boardid, page)
-    hidden_counts = [ db.count_hidden(thread[0]['thread_id']) for thread in threads ]
+    hidden_counts = [
+        db.count_hidden(thread[0]['thread_id']) for thread in threads
+    ]
     page_count = db.count_pages(boardid)
-    return render_template('board_index.html',
-            threads=threads,
-            board=boarddata,
-            counts=hidden_counts,
-            page_count=page_count)
+    return render_template(
+        'board_index.html',
+        threads=threads,
+        board=boarddata,
+        counts=hidden_counts,
+        page_count=page_count)
 
 
 @app.route('/<boardname>/<thread>/', methods=['GET'])
@@ -262,29 +291,33 @@ def thread(boardname, thread, boardid=None):
         # return general_error('Specified thread does not exist')
     thread_data = db.fetch_thread(boardid, thread)
     board_data = db.fetch_boarddata(boardid)
-    return render_template('thread.html',
-            thread=thread_data,
-            board=board_data)
+    return render_template('thread.html', thread=thread_data, board=board_data)
+
 
 @app.errorhandler(err.BadInput)
-def handle_permdenied(error):
+def handle_badinput(error):
     return render_template('error.html', error_message=error.message), 415
+
 
 @app.errorhandler(err.e404)
-def handle_permdenied(error):
+def handle_e404(error):
     return render_template('error.html', error_message=error.message), 404
 
+
 @app.errorhandler(err.BadMedia)
-def handle_permdenied(error):
+def handle_badmedia(error):
     return render_template('error.html', error_message=error.message), 415
+
 
 @app.errorhandler(err.PermDenied)
 def handle_permdenied(error):
-    return render_template('error.html', error_message=error.message), 550 
+    return render_template('error.html', error_message=error.message), 550
+
 
 @app.errorhandler(err.Forbidden)
 def handle_Forbidden(error):
     return render_template('error.html', error_message=error.message), 403
+
 
 @app.errorhandler(err.DNE)
 def handle_DNE(error):
