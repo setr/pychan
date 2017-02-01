@@ -1,6 +1,6 @@
 import config as cfg
 import sqlalchemy
-from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey,UniqueConstraint
+from sqlalchemy import Table, Column, Integer, String, Text, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
 import datetime
 
 class DB():
@@ -104,6 +104,7 @@ class DB():
         self.metadata = Metadata()
         self.create_db()
         self.reset_db()
+
 
 db = DB(cfg.master, cfg.slave, cfg.debug)
 db.create_db()
