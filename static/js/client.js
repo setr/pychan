@@ -51,7 +51,7 @@ document.querySelectorAll(".embed.watch").forEach(function (embedlink) {
             var iframe = embedlink.childNodes[1];
             embedlink.removeChild(iframe);
         } else if (embedlink.childNodes.length == 1) { 
-            embedlink.style = "width: 580px";
+            embedlink.style = "width: 565px";
             var iframe = document.createElement('iframe');
             iframe.type = "text/html";
             iframe.width = "560";
