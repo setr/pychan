@@ -322,7 +322,7 @@ def update_post_parsed(post, post_id, engine=None):
 def mark_dirtyclean(postid, isdirty, engine=None):
     """ sets the dirty flag.
         Args:
-            postid (int): global id of the post
+            postid (int): global (real) id of the post
             isdirty (bool): should be reparsed in the future, or not
     """
     with connection(engine) as conn:

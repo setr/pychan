@@ -36,6 +36,17 @@ def new_board(boardname, subtitle, slogan):
     db.create_board(boardname, subtitle, slogan)
 
 
+@click.command()
+@click.argument("board", required=True)
+@click.argument("postids", nargs=-1, required=True)
+def mark_dirty(boardname, postids):
+    boardid = db.get_boardid(boardname)
+    for pid in postids:
+        real_pid = db._get_realpostid(boardid, pid)
+        db.mark_dirtyclean(real_pid, True)
+    db.reparse_dirty_posts(boardname, boardid)
+
+
 if __name__ == '__main__':
     cli.add_command(delete_post)
     cli.add_command(autosage)
