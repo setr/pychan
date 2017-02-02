@@ -748,6 +748,7 @@ def makedata():
 
 
 if __name__ == '__main__':
+    pass
     # db.create_db()
     # db.reset_db()
     # create_board('g', 'stem', '')
