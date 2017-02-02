@@ -112,7 +112,7 @@ then go to localhost:5000
        - [x] webm thumbnail
        - [ ] spoiler thumbnail
        - [x] webms fail to load the second time they're expanded. I'm pretty sure this is flask's fault. **works fine on nginx**
-       - [ ] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
+       - [x] PDFs usually have a generic thumbnail. It would be much more useful if I could read out the first page, convert it to an image, and generate a thumbnail off that.
               - [x] I don't know why, but PDF thumbnail generation fails on server. Works fine on localhost, and when called using the Flask-server. **had to do with imagemagick's default location for ghostscript being incorrect.**
 - [ ] Full image on hover (JS)
        - Shouldn't apply to webms (it's annoying)
@@ -145,7 +145,7 @@ then go to localhost:5000
 - [x] reply-links 
 - [x] replied-by links
 - [x] >implying
-- [ ] Youtube embed (JS)
+- [x] Youtube embed (JS)
        - probably want this to be in the image section
 
 ### MODS
