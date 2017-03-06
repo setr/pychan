@@ -65,7 +65,7 @@ boardlinks = [('a', 'http://hawk.eva.hk/a/'),
               ('vq', 'http://hawk.eva.hk/vq/')]
 
 # off-site links that show up like boards, in their own bracket area
-cat2boardlinks = [('arq', 'http://arctic.ns22.ru')]
+cat2boards = [('arq', 'http://arctic.ns22.ru')]
 
 # AWS Settings
 aws = False # local img storage if False: S3 values won't be used.
