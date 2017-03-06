@@ -24,8 +24,8 @@ header h3::after{
 
 /* #navTop::before { content: '[';}
 /* #navTop span:last-child::after { content: ']'; }
+/* #navTop span::after { content: ' / '; }
  */
-#navTop span::after { content: ' / '; }
 #banner_info { margin-left: 7em; position: relative; }
 
 .form_trans{ /* the textarea */

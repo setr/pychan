@@ -4,8 +4,28 @@
 <span id="banner">
 ## required with this formatting else it adds a space
 ## boardlinks
-<b id="navTop">[{% for name, link in cfg.boardlinks %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}]{%if cfg.cat2boards %}[{%for name, link in cfg.cat2boards %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}{% endif %}</b>
+<b id="navTop">[
+{% for name, link in cfg.boardlinks[:-1] %}
+<span>
+{% if not loop.last %}
+<a href="{{link}}">{{name}}</a> /
+{% else %}
+<a href="{{link}}">{{name}}</a>
+{% endif %}
+</span>
+{% endfor %}]
 
+## second set of psuedo-boards
+{%if cfg.cat2boards %}[
+{%for name, link in cfg.cat2boards %}
+{% if not loop.last %}
+<span><a href="{{link}}">{{name}}</a></span> /
+{% else %}
+<span><a href="{{link}}">{{name}}</a></span>
+{% endif %}
+{% endfor %}]
+{% endif %}
+</b>
 
 <a id="options" class="bfloat" title="Options"> 
     <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8">
