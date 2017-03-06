@@ -4,7 +4,7 @@
 <span id="banner">
 ## required with this formatting else it adds a space
 ## boardlinks
-<b id="navTop">{% for name, link in cfg.boardlinks %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}</b>
+<b id="navTop">{% for name, link in cfg.boardlinks %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}{%if cfg.cat2boards %}[{%for name, link in cfg.cat2boards %}<span><a href="{{link}}">{{name}}</a></span>{% endfor %}{% endif %}</b>
 
 
 <a id="options" class="bfloat" title="Options"> 
