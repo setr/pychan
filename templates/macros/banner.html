@@ -4,26 +4,22 @@
 <span id="banner">
 ## required with this formatting else it adds a space
 ## boardlinks
-<b id="navTop">[
-{% for name, link in cfg.boardlinks[:-1] %}
-<span>
+<b id="navTop">[{% for name, link in cfg.boardlinks[:-1] %}<span>
 {% if not loop.last %}
 <a href="{{link}}">{{name}}</a> /
 {% else %}
 <a href="{{link}}">{{name}}</a>
 {% endif %}
-</span>
-{% endfor %}]
+</span>{% endfor %}]
 
 ## second set of psuedo-boards
-{%if cfg.cat2boards %}[
-{%for name, link in cfg.cat2boards %}
+{%if cfg.cat2boards %}[{%for name, link in cfg.cat2boards %}<span>
 {% if not loop.last %}
-<span><a href="{{link}}">{{name}}</a></span> /
+<a href="{{link}}">{{name}}</a> /
 {% else %}
-<span><a href="{{link}}">{{name}}</a></span>
+<a href="{{link}}">{{name}}</a>
 {% endif %}
-{% endfor %}]
+</span>{% endfor %}]
 {% endif %}
 </b>
 
