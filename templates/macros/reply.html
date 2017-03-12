@@ -2,17 +2,6 @@
 
 {% macro postform(threadid, isthreadpage) %}
 # if threadid, its a reply to a thread; else its a new thread.
-# if isthreadpage:
-    {% set tclass = 'threadsubject' %}
-    {% set tname = 'subject' %}
-    {% set ttext = 'Subject' %}
-    {% set tlength = '50' %}
-# else:
-    {% set tclass = 'replyemail' %}
-    {% set tname = 'email' %}
-    {% set ttext = 'Email' %}
-    {% set tlength = '30' %}
-# endif
 <article class="postform" style="display: none">
     ## posting to thread from index page
     # if threadid and not isthreadpage: 
