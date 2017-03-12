@@ -21,7 +21,9 @@
     <form method="post" enctype="multipart/form-data" action="./upload">
     # endif
         <header>
-            <b class="subject"><input type="text" class="subject" maxlength="30" name="name" placeholder="Anonymous"></b>
+            # if isthread:
+            <b class="subject"><input type="text" class="threadsubject" maxlength="30" name="subject" placeholder="Subject"></b>
+            # endif
             <b class="name"><input type="text" class="replyname" maxlength="30" name="name" placeholder="Anonymous"></b>
             <b class="email"><input type="text" class="replyemail" maxlength="30" name="email" placeholder="Email"></b>
         </header>
