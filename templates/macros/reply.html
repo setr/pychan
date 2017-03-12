@@ -1,8 +1,8 @@
 ## any standard import macros will go here
 
-{% macro postform(threadid, isthread) %}
-## if threadid, its a [New Reply]. Else [New Thread]
-# if isthread:
+{% macro postform(threadid, isthreadpage) %}
+# if threadid, its a reply to a thread; else its a new thread.
+# if isthreadpage:
     {% set tclass = 'threadsubject' %}
     {% set tname = 'subject' %}
     {% set ttext = 'Subject' %}
@@ -15,13 +15,13 @@
 # endif
 <article class="postform" style="display: none">
     ## posting to thread from index page
-    # if threadid and not isthread: 
+    # if threadid and not isthreadpage: 
     <form method="post" enctype="multipart/form-data" action="./{{threadid}}/upload">
     # else:
     <form method="post" enctype="multipart/form-data" action="./upload">
     # endif
         <header>
-            # if isthread:
+            # if not threadid:
             <b class="subject"><input type="text" class="threadsubject" maxlength="30" name="subject" placeholder="Subject"></b>
             # endif
             <b class="name"><input type="text" class="replyname" maxlength="30" name="name" placeholder="Anonymous"></b>
