@@ -49,7 +49,7 @@ flask run
 then go to localhost:5000
 
 
-##TODO
+## TODO
 ### GENERAL FIXES
 - [x] Thread/Index distinction isn't complete
        - May want to use template inheritance
